@@ -1,0 +1,81 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NoteToolAvalonia.ViewModels"
+             x:Class="NoteToolAvalonia.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+
+  <ScrollViewer Padding="32,24">
+    <StackPanel MaxWidth="700" Spacing="20">
+
+      <DockPanel>
+        <Button DockPanel.Dock="Left" Classes="ghost" Content="â† Back" Command="{Binding GoBackCommand}" />
+        <TextBlock Text="âš™ï¸ Settings" FontSize="28" FontWeight="Bold" Foreground="White"
+                   VerticalAlignment="Center" Margin="16,0,0,0" />
+        <Panel />
+      </DockPanel>
+
+      <Border Classes="card">
+        <StackPanel Spacing="14">
+          <TextBlock Text="ðŸŽ¨ Appearance" Classes="section-title" FontSize="18" />
+          <DockPanel>
+            <TextBlock Text="Theme" Width="160" Foreground="#ccc" VerticalAlignment="Center" />
+            <ComboBox ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme, Mode=TwoWay}" MinWidth="200" />
+          </DockPanel>
+          <DockPanel>
+            <TextBlock Text="Accent Color" Width="160" Foreground="#ccc" VerticalAlignment="Center" />
+            <ComboBox ItemsSource="{Binding AccentColors}" SelectedItem="{Binding AccentColor, Mode=TwoWay}" MinWidth="200">
+              <ComboBox.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Border Width="16" Height="16" CornerRadius="3" Background="{Binding}" />
+                    <TextBlock Text="{Binding}" VerticalAlignment="Center" />
+                  </StackPanel>
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+          </DockPanel>
+          <DockPanel>
+            <TextBlock Text="Font" Width="160" Foreground="#ccc" VerticalAlignment="Center" />
+            <ComboBox ItemsSource="{Binding Fonts}" SelectedItem="{Binding SelectedFont, Mode=TwoWay}" MinWidth="200" />
+          </DockPanel>
+          <DockPanel>
+            <TextBlock Text="{Binding FontSize, StringFormat='Font Size: {0:F0}'}" Width="160" Foreground="#ccc" VerticalAlignment="Center" />
+            <Slider Value="{Binding FontSize, Mode=TwoWay}" Minimum="10" Maximum="24" TickFrequency="1" IsSnapToTickEnabled="True" MinWidth="200" />
+          </DockPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="14">
+          <TextBlock Text="âš¡ Behavior" Classes="section-title" FontSize="18" />
+          <CheckBox IsChecked="{Binding AutoSave, Mode=TwoWay}" Content="Auto-save notes" Foreground="#ccc" />
+          <DockPanel IsEnabled="{Binding AutoSave}">
+            <TextBlock Text="{Binding AutoSaveInterval, StringFormat='Auto-save interval: {0}s'}" Width="220" Foreground="#ccc" VerticalAlignment="Center" />
+            <Slider Value="{Binding AutoSaveInterval, Mode=TwoWay}" Minimum="5" Maximum="120" TickFrequency="5" IsSnapToTickEnabled="True" MinWidth="200" />
+          </DockPanel>
+          <CheckBox IsChecked="{Binding ConfirmBeforeDelete, Mode=TwoWay}" Content="Confirm before deleting" Foreground="#ccc" />
+          <CheckBox IsChecked="{Binding ShowCompletedNotes, Mode=TwoWay}" Content="Show completed notes" Foreground="#ccc" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <TextBlock Text="ðŸ“ Data Storage" Classes="section-title" FontSize="18" />
+          <DockPanel>
+            <TextBlock Text="Data folder:" Foreground="#888" Width="100" VerticalAlignment="Center" />
+            <TextBox Text="{Binding DataFolderPath}" IsReadOnly="True" Foreground="#999" Padding="8,6" CornerRadius="4" />
+          </DockPanel>
+        </StackPanel>
+      </Border>
+
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <Button Classes="accent" Content="ðŸ’¾ Save Settings" Command="{Binding SaveSettingsCommand}" />
+        <Button Classes="ghost" Content="â†© Reset Defaults" Command="{Binding ResetDefaultsCommand}" />
+      </StackPanel>
+
+      <TextBlock Text="{Binding StatusMessage}" FontSize="13" Foreground="#2ecc71"
+                 IsVisible="{Binding StatusMessage.Length}" />
+
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

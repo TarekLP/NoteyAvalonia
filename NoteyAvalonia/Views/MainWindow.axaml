@@ -11,31 +11,29 @@
         WindowStartupLocation="CenterScreen">
 
   <DockPanel>
-    <Border Classes="sidebar" DockPanel.Dock="Left" Width="220"
+    <Border Classes="sidebar" DockPanel.Dock="Left" Width="320"
             IsVisible="{Binding IsSidebarVisible}">
       <DockPanel>
         <StackPanel DockPanel.Dock="Top" Margin="16,20,16,16">
-          <TextBlock Text="ðŸ“ NoteTool" FontSize="20" FontWeight="Bold" Foreground="White" />
-          <TextBlock Text="Kanban Note Manager" FontSize="11" Foreground="#666" Margin="0,2,0,0" />
+          <TextBlock Text="Notey" FontSize="20" FontWeight="Bold" Foreground="White" />
+          <TextBlock Text="The Number Zero Tool made by Gordon Greedman!" FontSize="11" Foreground="#666" Margin="0,2,0,0" />
           <Separator Margin="0,14,0,0" Background="#333" />
         </StackPanel>
         <StackPanel DockPanel.Dock="Top" Spacing="2" Margin="4,0">
           <Button Classes="sidebar-btn" Command="{Binding GoHomeCommand}">
             <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="ðŸ " FontSize="16" />
               <TextBlock Text="Home" VerticalAlignment="Center" />
             </StackPanel>
           </Button>
           <Button Classes="sidebar-btn" Command="{Binding GoSettingsCommand}">
             <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="âš™ï¸" FontSize="16" />
               <TextBlock Text="Settings" VerticalAlignment="Center" />
             </StackPanel>
           </Button>
         </StackPanel>
         <StackPanel DockPanel.Dock="Bottom" Margin="16,0,16,16">
           <Separator Background="#333" Margin="0,0,0,12" />
-          <TextBlock Text="v1.0.0 â€” Avalonia" FontSize="10" Foreground="#555"
+          <TextBlock Text="v1.0” Avalonia - Net 10.0" FontSize="10" Foreground="#555"
                      HorizontalAlignment="Center" />
         </StackPanel>
         <Panel />
@@ -43,7 +41,7 @@
     </Border>
 
     <Button DockPanel.Dock="Left" Command="{Binding ToggleSidebarCommand}"
-            Content="â˜°" FontSize="18" VerticalAlignment="Top"
+            Content="Hide Menubar" FontSize="15" VerticalAlignment="Top"
             Margin="4,8,0,0" Classes="ghost" Padding="8,6" />
 
     <Border Padding="0">

@@ -21,12 +21,13 @@ public class DataService
         Directory.CreateDirectory(_dataFolder);
         _boardsFile = Path.Combine(_dataFolder, "boards.json");
         _settingsFile = Path.Combine(_dataFolder, "settings.json");
-        _jsonOptions = new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            PropertyNameCaseInsensitive = true
-        };
-    }
+		_jsonOptions = new JsonSerializerOptions
+		{
+			WriteIndented = true,
+			PropertyNameCaseInsensitive = true,
+			DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never
+		};
+	}
 
     public List<Board> LoadBoards()
     {

@@ -13,16 +13,16 @@
     <Border DockPanel.Dock="Top" Background="#252526" Padding="16,10">
       <DockPanel>
         <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="8">
-          <Button Classes="ghost" Content="â† Back" Command="{Binding GoBackCommand}" />
-          <TextBlock Text="â”‚" Foreground="#444" VerticalAlignment="Center" />
-          <TextBlock Text="ðŸ“ Note Editor" FontSize="16" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center" />
+          <Button Classes="ghost" Content="Back" Command="{Binding GoBackCommand}" />
+          <TextBlock Text="" Foreground="#444" VerticalAlignment="Center" />
+          <TextBlock Text="Note Editor" FontSize="16" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center" />
           <TextBlock Text="{Binding ColumnName, StringFormat='  in column: {0}'}" FontSize="12" Foreground="#666" VerticalAlignment="Center" />
         </StackPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6">
-          <TextBlock Text="â— unsaved" FontSize="11" Foreground="#e67e22" VerticalAlignment="Center"
+          <TextBlock Text="unsaved" FontSize="11" Foreground="#e67e22" VerticalAlignment="Center"
                      IsVisible="{Binding HasUnsavedChanges}" Margin="0,0,8,0" />
-          <Button Classes="accent" Content="ðŸ’¾ Save" Command="{Binding SaveCommand}" />
-          <Button Classes="danger" Content="ðŸ—‘ Delete" Command="{Binding DeleteCommand}" />
+          <Button Classes="accent" Content="Save" Command="{Binding SaveCommand}" />
+          <Button Classes="danger" Content="Delete" Command="{Binding DeleteCommand}" />
         </StackPanel>
         <Panel />
       </DockPanel>
@@ -65,9 +65,9 @@
           <StackPanel Spacing="4">
             <TextBlock Text="QUICK INSERT" FontSize="11" FontWeight="Bold" Foreground="#888" />
             <WrapPanel>
-              <Button Classes="ghost" Content="ðŸ“… Timestamp" Command="{Binding InsertTimestampCommand}" Margin="0,0,6,6" />
-              <Button Classes="ghost" Content="â˜ Checkbox" Command="{Binding InsertCheckboxCommand}" Margin="0,0,6,6" />
-              <Button Classes="ghost" Content="â”€â”€ Separator" Command="{Binding InsertSeparatorCommand}" Margin="0,0,6,6" />
+              <Button Classes="ghost" Content="Timestamp" Command="{Binding InsertTimestampCommand}" Margin="0,0,6,6" />
+              <Button Classes="ghost" Content="Checkbox" Command="{Binding InsertCheckboxCommand}" Margin="0,0,6,6" />
+              <Button Classes="ghost" Content="Separator" Command="{Binding InsertSeparatorCommand}" Margin="0,0,6,6" />
             </WrapPanel>
           </StackPanel>
         </StackPanel>

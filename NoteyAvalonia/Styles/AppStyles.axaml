@@ -1,6 +1,10 @@
 ﻿<Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
+  <Style Selector="TemplatedControl">
+    <Setter Property="FontFamily" Value="Segoe UI" />
+  </Style>
+
   <Style Selector="Border.card">
     <Setter Property="Background" Value="#2d2d30" />
     <Setter Property="CornerRadius" Value="8" />
@@ -10,7 +14,7 @@
     <Setter Property="BorderThickness" Value="1" />
   </Style>
   <Style Selector="Border.card:pointerover">
-    <Setter Property="BorderBrush" Value="#007acc" />
+    <Setter Property="BorderBrush" Value="#6a1b9a" />
   </Style>
 
   <Style Selector="Border.kanban-column">
@@ -31,7 +35,7 @@
     <Setter Property="BorderThickness" Value="1" />
   </Style>
   <Style Selector="Border.note-card:pointerover">
-    <Setter Property="BorderBrush" Value="#007acc" />
+    <Setter Property="BorderBrush" Value="#6a1b9a" />
     <Setter Property="Background" Value="#3a3a3e" />
   </Style>
 
@@ -54,14 +58,14 @@
   </Style>
 
   <Style Selector="Button.accent">
-    <Setter Property="Background" Value="#007acc" />
+    <Setter Property="Background" Value="#6a1b9a" />
     <Setter Property="Foreground" Value="White" />
     <Setter Property="CornerRadius" Value="6" />
     <Setter Property="Padding" Value="16,10" />
     <Setter Property="FontWeight" Value="SemiBold" />
   </Style>
   <Style Selector="Button.accent:pointerover /template/ ContentPresenter">
-    <Setter Property="Background" Value="#1a8ad4" />
+    <Setter Property="Background" Value="#8e24aa" />
   </Style>
 
   <Style Selector="Button.danger">

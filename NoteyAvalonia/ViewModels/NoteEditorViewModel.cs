@@ -98,8 +98,16 @@ public partial class NoteEditorViewModel : ViewModelBase
     [RelayCommand]
     private void Delete()
     {
-        foreach (var col in _board.Columns) col.Cards.RemoveAll(c => c.Id == _card.Id);
-        _board.LastModified = DateTime.Now;
+		foreach (var col in _board.Columns)
+		{
+			var toRemove = col.Cards.FirstOrDefault(c => c.Id == _card.Id);
+			if (toRemove != null)
+			{
+				col.Cards.Remove(toRemove);
+				break;
+			}
+		}
+		_board.LastModified = DateTime.Now;
         _dataService.SaveBoard(_board);
         _navigation.NavigateToBoard(_board);
     }

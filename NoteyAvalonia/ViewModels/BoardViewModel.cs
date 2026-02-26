@@ -103,8 +103,13 @@ public partial class BoardViewModel : ViewModelBase
     {
         foreach (var col in Columns)
         {
-            if (col.Cards.RemoveAll(c => c.Id == card.Id) > 0) break;
-        }
+			var toRemove = col.Cards.FirstOrDefault(c => c.Id == card.Id);
+			if (toRemove != null)
+			{
+				col.Cards.Remove(toRemove);
+				break;
+			}
+		}
         Save();
         RefreshColumns();
     }
@@ -123,8 +128,10 @@ public partial class BoardViewModel : ViewModelBase
         var targetIdx = sourceIdx + direction;
         if (targetIdx < 0 || targetIdx >= Columns.Count) return;
         var targetCol = Columns[targetIdx];
-        sourceCol.Cards.RemoveAll(c => c.Id == card.Id);
-        card.ColumnId = targetCol.Id;
+		var toRemove = sourceCol.Cards.FirstOrDefault(c => c.Id == card.Id);
+		if (toRemove != null)
+			sourceCol.Cards.Remove(toRemove);
+		card.ColumnId = targetCol.Id;
         targetCol.Cards.Add(card);
         Save();
         RefreshColumns();
@@ -161,10 +168,28 @@ public partial class BoardViewModel : ViewModelBase
         }
         IsEditingBoardName = false;
     }
+	[RelayCommand]
 
-    [RelayCommand]
+	private void EditCard(NoteCard card)
+	{
+
+		System.Diagnostics.Debug.WriteLine($"Editing card: {card.Title}");
+	}
+
+	[RelayCommand]
     private void CancelEditBoardName() => IsEditingBoardName = false;
 
     [RelayCommand]
     private void GoBack() => _navigation.NavigateToWelcome();
+	
+    public void MoveCardToColumn(NoteCard card, BoardColumn targetColumn)
+	{
+		var sourceColumn = Columns.FirstOrDefault(c => c.Cards.Contains(card));
+		if (sourceColumn == null || sourceColumn == targetColumn) return;
+
+		sourceColumn.Cards.Remove(card);
+		card.ColumnId = targetColumn.Id;
+		targetColumn.Cards.Add(card);
+		Save();
+	}
 }

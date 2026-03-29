@@ -44,10 +44,12 @@
                         <Border Classes="note-card"
                                 Background="#333" CornerRadius="4" Padding="10" Margin="0,0,0,8"
                                 PointerPressed="NoteCard_PointerPressed"
+                                PointerMoved="NoteCard_PointerMoved"
+                                PointerReleased="NoteCard_PointerReleased"
                                 DoubleTapped="NoteCard_DoubleTapped">
                           <StackPanel>
                             <TextBlock Text="{Binding Title}" Foreground="White" FontWeight="SemiBold"/>
-                            <TextBlock Text="{Binding Content}" Foreground="#AAA" FontSize="12" MaxLines="2"/>
+                            <TextBlock Text="{Binding Content}" Foreground="#AAA" FontSize="12" MaxLines="2" TextTrimming="CharacterEllipsis"/>
                           </StackPanel>
                         </Border>
                       </DataTemplate>

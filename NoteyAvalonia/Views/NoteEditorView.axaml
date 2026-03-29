@@ -1,181 +1,96 @@
 ﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:NoteToolAvalonia.ViewModels"
+             xmlns:md="clr-namespace:Markdown.Avalonia;assembly=Markdown.Avalonia"
              x:Class="NoteToolAvalonia.Views.NoteEditorView"
              x:DataType="vm:NoteEditorViewModel">
 
-  <UserControl.Resources>
-    <SolidColorBrush x:Key="AccentBrush">#A370F7</SolidColorBrush>
-    <SolidColorBrush x:Key="EditorBg">#0F0F10</SolidColorBrush>
-    <SolidColorBrush x:Key="PreviewBg">#161618</SolidColorBrush>
-    <SolidColorBrush x:Key="ToolbarBg">#1A1A1C</SolidColorBrush>
-    <SolidColorBrush x:Key="BorderClr">#252526</SolidColorBrush>
-  </UserControl.Resources>
-
-  <UserControl.Styles>
-    <Style Selector="Button.tb">
-      <Setter Property="Background" Value="Transparent"/>
-      <Setter Property="Foreground" Value="#999"/>
-      <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="Padding" Value="10,6"/>
-      <Setter Property="Margin" Value="1,0"/>
-      <Setter Property="CornerRadius" Value="4"/>
-      <Setter Property="FontSize" Value="13"/>
-      <Setter Property="VerticalAlignment" Value="Center"/>
-    </Style>
-    <Style Selector="Button.tb:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#2A2A2C"/>
-      <Setter Property="Foreground" Value="White"/>
-    </Style>
-    <Style Selector="Button.tb:pressed /template/ ContentPresenter">
-      <Setter Property="Background" Value="#333335"/>
-    </Style>
-
-    <Style Selector="Button.ib">
-      <Setter Property="Background" Value="Transparent"/>
-      <Setter Property="Foreground" Value="#999"/>
-      <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="Width" Value="36"/>
-      <Setter Property="Height" Value="36"/>
-      <Setter Property="Padding" Value="0"/>
-      <Setter Property="CornerRadius" Value="4"/>
-      <Setter Property="FontSize" Value="16"/>
-      <Setter Property="HorizontalContentAlignment" Value="Center"/>
-      <Setter Property="VerticalContentAlignment" Value="Center"/>
-    </Style>
-    <Style Selector="Button.ib:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#2A2A2C"/>
-      <Setter Property="Foreground" Value="White"/>
-    </Style>
-  </UserControl.Styles>
-
   <Grid RowDefinitions="Auto,Auto,*,Auto">
-
-    <!-- ===== ROW 0: HEADER BAR ===== -->
-    <Border Grid.Row="0"
-            Background="{StaticResource ToolbarBg}"
-            Height="64" Padding="20,0"
-            BorderBrush="{StaticResource BorderClr}" BorderThickness="0,0,0,1">
+    <!-- Header with Back and Save -->
+    <Border Grid.Row="0" Background="#1A1A1C" Padding="15,8" BorderBrush="#252526" BorderThickness="0,0,0,1">
       <DockPanel>
-
-        <!-- Left side -->
-        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-          <Button Command="{Binding GoBackCommand}" Classes="ib" Content="&#x2190;" FontSize="20"
-                  ToolTip.Tip="Back to board"/>
-          <Border Width="1" Height="24" Background="#333" Margin="4,0"/>
-          <StackPanel Spacing="2">
-            <TextBox Text="{Binding NoteTitle}"
-                     Watermark="Untitled Note"
-                     BorderThickness="0"
-                     Background="Transparent"
-                     FontSize="18" FontWeight="Bold" Foreground="White"
-                     Width="350"
-                     CaretBrush="{StaticResource AccentBrush}"/>
-            <TextBlock Text="{Binding LastModified, StringFormat='Last modified: {0:MMM dd, yyyy HH:mm}'}"
-                       FontSize="11" Foreground="#666"/>
-          </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="5" DockPanel.Dock="Left">
+          <Button Command="{Binding GoBackCommand}" Background="Transparent">
+            <TextBlock Text="Back" Foreground="MediumPurple"/>
+          </Button>
+          <TextBox Text="{Binding NoteTitle}" Width="300" FontWeight="Bold" Background="Transparent" 
+                   BorderThickness="0" VerticalAlignment="Center"/>
         </StackPanel>
 
-        <!-- Right side -->
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-          <Button Command="{Binding TogglePreviewCommand}" Classes="ib"
-                  Content="&#x1F441;" ToolTip.Tip="Toggle preview"/>
-          <Border Width="1" Height="24" Background="#333" Margin="4,0"/>
-          <Button Content="Save" Command="{Binding SaveCommand}"
-                  Background="{StaticResource AccentBrush}" Foreground="White"
-                  CornerRadius="6" Padding="16,8" FontWeight="SemiBold" BorderThickness="0"/>
-          <Button Command="{Binding DeleteCommand}" Classes="ib"
-                  Foreground="#ff6b6b" Content="&#x1F5D1;" ToolTip.Tip="Delete note"/>
-        </StackPanel>
-
+        <Button DockPanel.Dock="Right" Command="{Binding SaveCommand}" Background="MediumPurple" Foreground="White" 
+                Content="Save"/>
       </DockPanel>
     </Border>
 
-    <!-- ===== ROW 1: FORMATTING TOOLBAR ===== -->
-    <Border Grid.Row="1"
-            Background="{StaticResource ToolbarBg}"
-            Padding="16,6"
-            BorderBrush="{StaticResource BorderClr}" BorderThickness="0,0,0,1">
-      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-        <StackPanel Orientation="Horizontal" Spacing="2">
+    <!-- Toolbar -->
+    <Border Grid.Row="1" Background="#1A1A1C" Padding="15,8" BorderBrush="#252526" BorderThickness="0,0,0,1">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <!-- Formatting Buttons -->
+        <Button ToolTip.Tip="Bold (Ctrl+B)" Padding="8,4" Background="#252526" Foreground="#DDD">
+          <TextBlock Text="𝐁" FontSize="14" FontWeight="Bold"/>
+        </Button>
+        <Button ToolTip.Tip="Italic (Ctrl+I)" Padding="8,4" Background="#252526" Foreground="#DDD">
+          <TextBlock Text="𝘐" FontSize="14" FontStyle="Italic"/>
+        </Button>
+        <Button ToolTip.Tip="Strikethrough" Padding="8,4" Background="#252526" Foreground="#DDD">
+          <TextBlock Text="S̶" FontSize="14"/>
+        </Button>
 
-          <!-- Headings -->
-          <Button Classes="tb" Content="H1" Command="{Binding InsertHeading1Command}" ToolTip.Tip="Heading 1"/>
-          <Button Classes="tb" Content="H2" Command="{Binding InsertHeading2Command}" ToolTip.Tip="Heading 2"/>
-          <Button Classes="tb" Content="H3" Command="{Binding InsertHeading3Command}" ToolTip.Tip="Heading 3"/>
+        <!-- Separator -->
+        <Separator Background="#3e3e42" Margin="4,0"/>
 
-          <Border Width="1" Height="22" Background="#333" Margin="6,0"/>
+        <!-- Heading Buttons -->
+        <Button ToolTip.Tip="Heading 1" Padding="8,4" Background="#252526" Foreground="#DDD">
+          <TextBlock Text="H1" FontSize="12" FontWeight="Bold"/>
+        </Button>
+        <Button ToolTip.Tip="Heading 2" Padding="8,4" Background="#252526" Foreground="#DDD">
+          <TextBlock Text="H2" FontSize="12" FontWeight="Bold"/>
+        </Button>
+        <Button ToolTip.Tip="Heading 3" Padding="8,4" Background="#252526" Foreground="#DDD">
+          <TextBlock Text="H3" FontSize="12" FontWeight="Bold"/>
+        </Button>
 
-          <!-- Text Formatting -->
-          <Button Classes="tb" Content="B" FontWeight="Bold"
-                  Command="{Binding InsertBoldCommand}" ToolTip.Tip="Bold"/>
-          <Button Classes="tb" Content="I" FontStyle="Italic"
-                  Command="{Binding InsertItalicCommand}" ToolTip.Tip="Italic"/>
-          <Button Classes="tb" Content="S"
-                  Command="{Binding InsertStrikethroughCommand}" ToolTip.Tip="Strikethrough"/>
-          <Button Classes="tb" Content="&#60;/&#62;"
-                  Command="{Binding InsertCodeCommand}" ToolTip.Tip="Inline code"/>
+        <!-- Separator -->
+        <Separator Background="#3e3e42" Margin="4,0"/>
 
-          <Border Width="1" Height="22" Background="#333" Margin="6,0"/>
+        <!-- List Buttons -->
+        <Button ToolTip.Tip="Bullet List" Padding="8,4" Background="#252526" Foreground="#DDD">
+          <TextBlock Text="•" FontSize="14"/>
+        </Button>
+        <Button ToolTip.Tip="Numbered List" Padding="8,4" Background="#252526" Foreground="#DDD">
+          <TextBlock Text="1." FontSize="12" FontWeight="Bold"/>
+        </Button>
+        <Button ToolTip.Tip="Checklist" Padding="8,4" Background="#252526" Foreground="#DDD">
+          <TextBlock Text="☑" FontSize="14"/>
+        </Button>
 
-          <!-- Lists -->
-          <Button Classes="tb" Content="&#x2022; List"
-                  Command="{Binding InsertBulletListCommand}" ToolTip.Tip="Bullet list"/>
-          <Button Classes="tb" Content="1. List"
-                  Command="{Binding InsertNumberedListCommand}" ToolTip.Tip="Numbered list"/>
-          <Button Classes="tb" Content="&#x2610; Task"
-                  Command="{Binding InsertCheckboxCommand}" ToolTip.Tip="Task list"/>
+        <!-- Separator -->
+        <Separator Background="#3e3e42" Margin="4,0"/>
 
-          <Border Width="1" Height="22" Background="#333" Margin="6,0"/>
+        <!-- Code and Quote -->
+        <Button ToolTip.Tip="Code Block" Padding="8,4" Background="#252526" Foreground="#DDD">
+          <TextBlock Text="&lt;&gt;" FontSize="12" FontWeight="Bold"/>
+        </Button>
+        <Button ToolTip.Tip="Quote" Padding="8,4" Background="#252526" Foreground="#DDD">
+          <TextBlock Text="&gt;" FontSize="14"/>
+        </Button>
 
-          <!-- Insert -->
-          <Button Classes="tb" Content="Link"
-                  Command="{Binding InsertLinkCommand}" ToolTip.Tip="Insert link"/>
-          <Button Classes="tb" Content="Image"
-                  Command="{Binding InsertImageCommand}" ToolTip.Tip="Insert image"/>
-          <Button Classes="tb" Content="Quote"
-                  Command="{Binding InsertQuoteCommand}" ToolTip.Tip="Block quote"/>
-          <Button Classes="tb" Content="Table"
-                  Command="{Binding InsertTableCommand}" ToolTip.Tip="Insert table"/>
-          <Button Classes="tb" Content="Code Block"
-                  Command="{Binding InsertCodeBlockCommand}" ToolTip.Tip="Code block"/>
-          <Button Classes="tb" Content="&#x2014;"
-                  Command="{Binding InsertHorizontalRuleCommand}" ToolTip.Tip="Horizontal rule"/>
+        <!-- Spacer -->
+        <Border Width="1"/>
 
-          <Border Width="1" Height="22" Background="#333" Margin="6,0"/>
-
-          <!-- Priority -->
-          <TextBlock Text="Priority:" VerticalAlignment="Center" Foreground="#666" Margin="6,0,6,0" FontSize="12"/>
-          <ComboBox ItemsSource="{Binding PriorityLevels}"
-                    SelectedItem="{Binding SelectedPriority}"
-                    MinWidth="110"
-                    Background="#2A2A2C"
-                    BorderThickness="1"
-                    BorderBrush="#333"
-                    CornerRadius="4"
-                    FontSize="12"/>
-
-          <Border Width="1" Height="22" Background="#333" Margin="6,0"/>
-
-          <!-- Tags -->
-          <TextBlock Text="Tags:" VerticalAlignment="Center" Foreground="#666" Margin="6,0,6,0" FontSize="12"/>
-          <TextBox Text="{Binding Tags}"
-                   Watermark="tag1, tag2..."
-                   Background="#2A2A2C"
-                   BorderThickness="1"
-                   BorderBrush="#333"
-                   CornerRadius="4"
-                   Padding="8,4"
-                   Foreground="White"
-                   MinWidth="160"
-                   FontSize="12"
-                   CaretBrush="{StaticResource AccentBrush}"/>
-
-        </StackPanel>
-      </ScrollViewer>
+        <!-- Preview Toggle -->
+        <Button Name="PreviewToggleButton" 
+                ToolTip.Tip="Toggle Preview (Ctrl+Shift+P)" 
+                Padding="8,4" 
+                Background="Transparent" 
+                Foreground="#2ecc71"
+                Margin="0,0,0,0">
+          <TextBlock Text="👁️ Preview" FontSize="12"/>
+        </Button>
+      </StackPanel>
     </Border>
 
-    <!-- ===== ROW 2: EDITOR + PREVIEW ===== -->
+    <!-- Editor and Preview Pane -->
     <Grid Grid.Row="2">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*"/>
@@ -183,91 +98,52 @@
         <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
 
-      <!-- Editor Panel -->
-      <Border Grid.Column="0" Background="{StaticResource EditorBg}">
-        <DockPanel>
-          <Border DockPanel.Dock="Top" Background="#1A1A1C" Padding="16,6"
-                  BorderBrush="#252526" BorderThickness="0,0,0,1">
-            <TextBlock Text="EDITOR" FontSize="10" FontWeight="Black" Foreground="#555" LetterSpacing="1.5"/>
-          </Border>
-          <TextBox Text="{Binding NoteContent, Mode=TwoWay}"
-                   AcceptsReturn="True"
-                   TextWrapping="Wrap"
-                   BorderThickness="0"
-                   Background="Transparent"
-                   Foreground="#E0E0E0"
-                   Padding="28,20"
-                   FontSize="15"
-                   FontFamily="Cascadia Code, Consolas, monospace"
-                   CaretBrush="{StaticResource AccentBrush}"/>
-        </DockPanel>
-      </Border>
+      <!-- Editor -->
+      <TextBox Grid.Column="0"
+               Text="{Binding NoteContent}"
+               AcceptsReturn="True"
+               TextWrapping="Wrap"
+               Background="#0F0F10"
+               BorderThickness="0"
+               Padding="30"
+               Name="EditorTextBox"/>
 
-      <!-- Splitter (only visible when preview is on) -->
-      <GridSplitter Grid.Column="1"
-                    Background="#252526"
-                    Width="3"
-                    ResizeDirection="Columns"
-                    IsVisible="{Binding IsPreviewVisible}"/>
+      <!-- Splitter -->
+      <GridSplitter Grid.Column="1" 
+                    Width="4" 
+                    Background="#252526" 
+                    Cursor="SizeWestEast"/>
 
-      <!-- Preview Panel -->
-      <Border Grid.Column="2"
-              Background="{StaticResource PreviewBg}"
-              IsVisible="{Binding IsPreviewVisible}">
-        <DockPanel>
-          <Border DockPanel.Dock="Top" Background="#1A1A1C" Padding="16,6"
-                  BorderBrush="#252526" BorderThickness="0,0,0,1">
-            <TextBlock Text="PREVIEW" FontSize="10" FontWeight="Black" Foreground="#555" LetterSpacing="1.5"/>
-          </Border>
-          <ScrollViewer Padding="28,20">
-            <SelectableTextBlock Text="{Binding NoteContent}"
-                                  TextWrapping="Wrap"
-                                  Foreground="#D4D4D4"
-                                  FontSize="15"
-                                  LineHeight="24"/>
-          </ScrollViewer>
-        </DockPanel>
+      <!-- Preview Pane -->
+      <Border Grid.Column="2" 
+              Background="#0F0F10"
+              BorderThickness="1,0,0,0"
+              BorderBrush="#252526"
+              Padding="30"
+              Name="PreviewPane">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <md:MarkdownScrollViewer Markdown="{Binding NoteContent}" />
+        </ScrollViewer>
       </Border>
     </Grid>
 
-    <!-- ===== ROW 3: STATUS BAR ===== -->
-    <Border Grid.Row="3"
-            Background="{StaticResource ToolbarBg}"
-            Padding="20,6"
-            BorderBrush="{StaticResource BorderClr}" BorderThickness="0,1,0,0">
-      <DockPanel>
-
-        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="20">
-          <TextBlock FontSize="11" Foreground="#555">
-            <Run Text="{Binding WordCount}"/>
-            <Run Text=" words"/>
-          </TextBlock>
-          <TextBlock FontSize="11" Foreground="#555">
-            <Run Text="{Binding CharacterCount}"/>
-            <Run Text=" chars"/>
-          </TextBlock>
-          <TextBlock FontSize="11" Foreground="#555">
-            <Run Text="{Binding LineCount}"/>
-            <Run Text=" lines"/>
-          </TextBlock>
-          <TextBlock FontSize="11" Foreground="#555"
-                     Text="{Binding CreatedAt, StringFormat='Created: {0:MMM dd, yyyy}'}"/>
-        </StackPanel>
-
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="10">
-          <TextBlock Text="{Binding StatusMessage}"
-                     Foreground="#2ecc71"
-                     FontSize="12"
-                     FontWeight="SemiBold"
-                     VerticalAlignment="Center"/>
-          <Border Background="#ff6b6b" CornerRadius="4" Padding="8,2"
-                  IsVisible="{Binding HasUnsavedChanges}">
-            <TextBlock Text="Unsaved" FontSize="10" Foreground="White" FontWeight="Bold"/>
-          </Border>
-        </StackPanel>
-
-      </DockPanel>
+    <!-- Status Bar -->
+    <Border Grid.Row="3" Background="#1A1A1C" Padding="20,6" BorderBrush="#252526" BorderThickness="0,1,0,0">
+      <StackPanel Orientation="Horizontal" Spacing="20">
+        <TextBlock Foreground="#555">
+          <Run Text="{Binding WordCount}"/>
+          <Run Text=" words"/>
+        </TextBlock>
+        <TextBlock Foreground="#555">
+          <Run Text="{Binding CharacterCount}"/>
+          <Run Text=" characters"/>
+        </TextBlock>
+        <TextBlock Foreground="#555">
+          <Run Text="{Binding LineCount}"/>
+          <Run Text=" lines"/>
+        </TextBlock>
+        <TextBlock Text="{Binding StatusMessage}" Foreground="#2ecc71" VerticalAlignment="Center"/>
+      </StackPanel>
     </Border>
-
   </Grid>
 </UserControl>

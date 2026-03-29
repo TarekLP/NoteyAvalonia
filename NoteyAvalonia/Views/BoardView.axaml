@@ -1,78 +1,68 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="using:NoteToolAvalonia.ViewModels"
-             xmlns:models="using:NoteToolAvalonia.Models"
-             xmlns:conv="using:NoteToolAvalonia.Converters"
-             x:Class="NoteToolAvalonia.Views.BoardView"
-             x:DataType="vm:BoardViewModel">
+﻿    <UserControl
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NoteToolAvalonia.ViewModels"
+        xmlns:models="using:NoteToolAvalonia.Models"
+        x:Class="NoteToolAvalonia.Views.BoardView"
+        x:DataType="vm:BoardViewModel">
 
-  <UserControl.Resources>
-    <conv:PriorityColorConverter x:Key="PriorityColorConverter" />
-  </UserControl.Resources>
-
-  <Panel>
-    <DockPanel>
-      <Border DockPanel.Dock="Top" Background="#252526" Padding="20,12">
-        <DockPanel>
-          <StackPanel Orientation="Horizontal" Spacing="12" DockPanel.Dock="Left">
-            <Button Classes="ghost" Command="{Binding GoBackCommand}" Content="Back" Foreground="MediumPurple" />
-            <TextBlock Text="{Binding Board.Name}" FontSize="20" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
-          </StackPanel>
-        </DockPanel>
-      </Border>
-
-      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Padding="14">
+      <ScrollViewer HorizontalScrollBarVisibility="Auto">
         <ItemsControl ItemsSource="{Binding Columns}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
-              <StackPanel Orientation="Horizontal" Spacing="0" />
+              <StackPanel Orientation="Horizontal"/>
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="models:BoardColumn">
-              <Border Classes="kanban-column"
-                      DragDrop.AllowDrop="True"
-                      DragDrop.DragOver="Column_DragOver"
-                      DragDrop.Drop="Column_Drop"
-                      Width="300" Margin="0,0,10,0">
-                <DockPanel>
-                  <TextBlock DockPanel.Dock="Top" Text="{Binding Title}" Foreground="MediumPurple" FontWeight="Bold" Margin="0,0,0,10"/>
 
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border Background="#2D2D30" Margin="10" Padding="10" CornerRadius="8"
+                      DragDrop.AllowDrop="True"
+                      Name="ColumnBorder">
+                <StackPanel Width="250">
+
+                  <!-- Column Title -->
+                  <TextBlock 
+                    Text="{Binding Title}"
+                    FontWeight="Bold"
+                    Foreground="White"/>
+
+                  <!-- Notes / Cards -->
                   <ItemsControl ItemsSource="{Binding Cards}">
                     <ItemsControl.ItemTemplate>
-                      <DataTemplate x:DataType="models:NoteCard">
-                        <Border Classes="note-card"
-                                Background="#333" CornerRadius="4" Padding="10" Margin="0,0,0,8"
+                      <DataTemplate>
+                        <Border Background="#3A3A3D" Margin="5" Padding="8" CornerRadius="6"
                                 PointerPressed="NoteCard_PointerPressed"
                                 PointerMoved="NoteCard_PointerMoved"
                                 PointerReleased="NoteCard_PointerReleased"
                                 DoubleTapped="NoteCard_DoubleTapped">
                           <StackPanel>
-                            <TextBlock Text="{Binding Title}" Foreground="White" FontWeight="SemiBold"/>
-                            <TextBlock Text="{Binding Content}" Foreground="#AAA" FontSize="12" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+
+                            <!-- Content -->
+                            <TextBlock 
+                              Text="{Binding Content}"
+                              Foreground="#DDD"
+                              TextWrapping="Wrap"
+                              MaxLines="2"
+                              TextTrimming="CharacterEllipsis"/>
+
+                            <!-- Last Modified -->
+                            <TextBlock 
+                              Text="{Binding LastModified, StringFormat='Last modified: {0:MMM dd, yyyy HH:mm}'}"
+                              Foreground="#888"
+                              FontSize="10"/>
+
                           </StackPanel>
                         </Border>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
-                </DockPanel>
+
+                </StackPanel>
               </Border>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
+
         </ItemsControl>
       </ScrollViewer>
-    </DockPanel>
-
-    <Button HorizontalAlignment="Right" 
-            VerticalAlignment="Bottom" 
-            Margin="30" 
-            Width="50" 
-            Height="50" 
-            CornerRadius="25"
-            Background="MediumPurple"
-            Foreground="White"
-            FontSize="24"
-            Content="+"
-            Command="{Binding AddNoteCommand}" />
-  </Panel>
-</UserControl>
+    </UserControl>

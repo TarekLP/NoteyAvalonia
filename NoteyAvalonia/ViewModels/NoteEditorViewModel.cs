@@ -1,10 +1,11 @@
-﻿using System;
-using System.Linq;
-using System.Collections.ObjectModel;
+﻿using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NoteToolAvalonia.Models;
 using NoteToolAvalonia.Services;
+using System;
+using System.Collections.ObjectModel;
+using System.Linq;
 
 namespace NoteToolAvalonia.ViewModels;
 

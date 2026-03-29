@@ -6,7 +6,7 @@ public class AppSettings
 	public string FontFamily { get; set; } = "Inter";
 	public int FontSize { get; set; } = 14;
 	public bool AutoSave { get; set; } = true;
-	public int AutoSaveInterval { get; set; } = 30;
+	public int AutoSaveInterval { get; set; } = 2;
 	public bool ConfirmBeforeDelete { get; set; } = true;
 	public bool ShowCompletedNotes { get; set; } = true;
 }

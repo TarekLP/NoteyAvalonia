@@ -1,4 +1,4 @@
-﻿PROJECT OVERVIEW - 03/29/2026 11:33:11
+﻿PROJECT OVERVIEW - 03/29/2026 11:51:20
 
 ========================================
 FOLDER: Models
@@ -1195,7 +1195,7 @@ public partial class BoardView : UserControl
 		}
 	}
 
-	private async void NoteCard_PointerMoved(object? sender, PointerEventArgs e)
+	private void NoteCard_PointerMoved(object? sender, PointerEventArgs e)
 	{
 		if (!_isPressed || _pendingDragCard == null) return;
 
@@ -1210,11 +1210,11 @@ public partial class BoardView : UserControl
 			var draggedCard = _pendingDragCard;
 			_pendingDragCard = null;
 
-			// === THIS IS THE FIXED PART ===
-			var data = new DataTransfer();
-			data.SetData("NoteCard", draggedCard);        // ← SetData, not Set
+			// ✅ WORKAROUND: Use DataObject + synchronous DoDragDrop
+			var data = new DataObject();
+			data.Set("NoteCard", draggedCard);
 
-			await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move);
+			DragDrop.DoDragDrop(e, data, DragDropEffects.Move);
 		}
 	}
 

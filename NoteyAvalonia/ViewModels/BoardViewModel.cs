@@ -1,10 +1,11 @@
-﻿using System;
-using System.Collections.ObjectModel;
-using System.Linq;
+﻿using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NoteToolAvalonia.Models;
 using NoteToolAvalonia.Services;
+using System;
+using System.Collections.ObjectModel;
+using System.Linq;
 
 namespace NoteToolAvalonia.ViewModels;
 
@@ -12,7 +13,6 @@ public partial class BoardViewModel : ViewModelBase
 {
 	private readonly NavigationService _navigation;
 	private readonly DataService _dataService;
-
 	[ObservableProperty]
 	private Board _board;
 

@@ -8,7 +8,9 @@
         Width="1280" Height="800"
         MinWidth="900" MinHeight="600"
         Background="#1e1e1e"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        FontFamily="{Binding CurrentFontFamily}"
+        FontSize="{Binding CurrentFontSize}">
 
   <DockPanel>
     <Border Classes="sidebar" DockPanel.Dock="Left" Width="320"
@@ -33,7 +35,7 @@
         </StackPanel>
         <StackPanel DockPanel.Dock="Bottom" Margin="16,0,16,16">
           <Separator Background="#333" Margin="0,0,0,12" />
-          <TextBlock Text="v1.0” Avalonia - Net 10.0" FontSize="10" Foreground="#555"
+          <TextBlock Text="v1.0 Avalonia - Net 10.0" FontSize="10" Foreground="#555"
                      HorizontalAlignment="Center" />
         </StackPanel>
         <Panel />

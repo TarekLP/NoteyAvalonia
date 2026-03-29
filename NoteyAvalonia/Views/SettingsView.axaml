@@ -2,83 +2,68 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:NoteToolAvalonia.ViewModels"
              x:Class="NoteToolAvalonia.Views.SettingsView"
-             x:DataType="vm:SettingsViewModel">
+             x:DataType="vm:SettingsViewModel"
+             Background="#0F0F0F">
+    <DockPanel>
+        <Border DockPanel.Dock="Top" Background="#1A1A1A" Padding="25,20" BorderBrush="#2D2D30" BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal" Spacing="15">
+                <Button Command="{Binding GoBackCommand}" Background="Transparent" BorderThickness="0">
+                    <TextBlock Text="←" FontSize="20" Foreground="#A020F0"/>
+                </Button>
+                <TextBlock Text="Settings" FontSize="24" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
 
-  <UserControl.Styles>
-    <Style Selector="Button.accent">
-      <Setter Property="Background" Value="#800080" />
-      <Setter Property="Foreground" Value="White" />
-    </Style>
-    <Style Selector="Button.accent:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#a000a0" />
-    </Style>
-    <Style Selector="TextBlock.section-title">
-      <Setter Property="Foreground" Value="#bf55ec" />
-      <Setter Property="FontWeight" Value="SemiBold" />
-    </Style>
-  </UserControl.Styles>
+        <Border DockPanel.Dock="Bottom" Background="#1A1A1A" Padding="20" BorderBrush="#2D2D30" BorderThickness="0,1,0,0">
+            <DockPanel>
+                <TextBlock Text="{Binding StatusMessage}" Foreground="#BF40BF" VerticalAlignment="Center" DockPanel.Dock="Left"/>
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                    <Button Content="Reset Defaults" Command="{Binding ResetDefaultsCommand}" Background="Transparent" Foreground="#888"/>
+                    <Button Content="Save Changes" Command="{Binding SaveSettingsCommand}" Background="#A020F0" Foreground="White" Width="150" HorizontalContentAlignment="Center"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
 
-  <ScrollViewer Padding="32,24" Background="#121212">
-    <StackPanel MaxWidth="700" Spacing="20">
+        <ScrollViewer Padding="40,20">
+            <StackPanel Spacing="30" MaxWidth="800" HorizontalAlignment="Left">
+                <StackPanel Spacing="15">
+                    <TextBlock Text="APPEARANCE" Foreground="#A020F0" FontSize="12" FontWeight="SemiBold" LetterSpacing="1"/>
+                    <Border Background="#1A1A1A" CornerRadius="8" Padding="20">
+                        <StackPanel Spacing="20">
+                            <DockPanel>
+                                <TextBlock Text="Theme Mode" Foreground="White" VerticalAlignment="Center"/>
+                                <ComboBox ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme}" Width="150" HorizontalAlignment="Right"/>
+                            </DockPanel>
+                            <Separator Background="#2D2D30"/>
+                            <DockPanel>
+                                <TextBlock Text="Font Family" Foreground="White" VerticalAlignment="Center"/>
+                                <ComboBox ItemsSource="{Binding Fonts}" SelectedItem="{Binding SelectedFont}" Width="150" HorizontalAlignment="Right"/>
+                            </DockPanel>
+                            <Separator Background="#2D2D30"/>
+                            <DockPanel>
+                                <TextBlock Text="Font Size" Foreground="White" VerticalAlignment="Center"/>
+                                <NumericUpDown Value="{Binding FontSize}" Minimum="10" Maximum="24" Width="150" HorizontalAlignment="Right"/>
+                            </DockPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
 
-      <DockPanel>
-        <Button DockPanel.Dock="Left" Classes="ghost" Content="Back" Command="{Binding GoBackCommand}" />
-        <TextBlock Text="Settings" FontSize="28" FontWeight="Bold" Foreground="White"
-                   VerticalAlignment="Center" Margin="16,0,0,0" />
-      </DockPanel>
-
-      <Border Background="#1e1e1e" CornerRadius="8" Padding="20">
-        <StackPanel Spacing="14">
-          <TextBlock Text="Appearance" Classes="section-title" FontSize="18" />
-          
-          <DockPanel>
-            <TextBlock Text="Theme" Width="160" Foreground="#ccc" VerticalAlignment="Center" />
-            <ComboBox ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme, Mode=TwoWay}" MinWidth="200" />
-          </DockPanel>
-
-          <DockPanel>
-            <TextBlock Text="Font" Width="160" Foreground="#ccc" VerticalAlignment="Center" />
-            <ComboBox ItemsSource="{Binding Fonts}" SelectedItem="{Binding SelectedFont, Mode=TwoWay}" MinWidth="200" />
-          </DockPanel>
-
-          <DockPanel>
-            <TextBlock Text="{Binding FontSize, StringFormat='Font Size: {0:F0}'}" Width="160" Foreground="#ccc" VerticalAlignment="Center" />
-            <Slider Value="{Binding FontSize, Mode=TwoWay}" Minimum="10" Maximum="24" TickFrequency="1" IsSnapToTickEnabled="True" MinWidth="200" />
-          </DockPanel>
-        </StackPanel>
-      </Border>
-
-      <Border Background="#1e1e1e" CornerRadius="8" Padding="20">
-        <StackPanel Spacing="14">
-          <TextBlock Text="Behavior" Classes="section-title" FontSize="18" />
-          <CheckBox IsChecked="{Binding AutoSave, Mode=TwoWay}" Content="Auto-save notes" Foreground="#ccc" />
-          <DockPanel IsEnabled="{Binding AutoSave}">
-            <TextBlock Text="{Binding AutoSaveInterval, StringFormat='Auto-save interval: {0}s'}" Width="220" Foreground="#ccc" VerticalAlignment="Center" />
-            <Slider Value="{Binding AutoSaveInterval, Mode=TwoWay}" Minimum="5" Maximum="120" TickFrequency="5" IsSnapToTickEnabled="True" MinWidth="200" />
-          </DockPanel>
-          <CheckBox IsChecked="{Binding ConfirmBeforeDelete, Mode=TwoWay}" Content="Confirm before deleting" Foreground="#ccc" />
-          <CheckBox IsChecked="{Binding ShowCompletedNotes, Mode=TwoWay}" Content="Show completed notes" Foreground="#ccc" />
-        </StackPanel>
-      </Border>
-
-      <Border Background="#1e1e1e" CornerRadius="8" Padding="20">
-        <StackPanel Spacing="10">
-          <TextBlock Text="Data Storage" Classes="section-title" FontSize="18" />
-          <DockPanel>
-            <TextBlock Text="Data folder:" Foreground="#888" Width="100" VerticalAlignment="Center" />
-            <TextBox Text="{Binding DataFolderPath}" IsReadOnly="True" Foreground="#999" Padding="8,6" CornerRadius="4" Background="#2a2a2a" BorderThickness="0"/>
-          </DockPanel>
-        </StackPanel>
-      </Border>
-
-      <StackPanel Orientation="Horizontal" Spacing="12">
-        <Button Classes="accent" Content="Save Settings" Command="{Binding SaveSettingsCommand}" />
-        <Button Classes="ghost" Content="Reset Defaults" Command="{Binding ResetDefaultsCommand}" />
-      </StackPanel>
-
-      <TextBlock Text="{Binding StatusMessage}" FontSize="13" Foreground="#2ecc71"
-                 IsVisible="{Binding StatusMessage.Length}" />
-
-    </StackPanel>
-  </ScrollViewer>
+                <StackPanel Spacing="15">
+                    <TextBlock Text="EDITOR &amp; BEHAVIOR" Foreground="#A020F0" FontSize="12" FontWeight="SemiBold" LetterSpacing="1"/>
+                    <Border Background="#1A1A1A" CornerRadius="8" Padding="20">
+                        <StackPanel Spacing="15">
+                            <ToggleSwitch IsChecked="{Binding AutoSave}" Content="Enable Auto-Save" Foreground="White"/>
+                            <DockPanel IsEnabled="{Binding AutoSave}">
+                                <TextBlock Text="Auto-Save Interval (minutes)" Foreground="White" VerticalAlignment="Center"/>
+                                <NumericUpDown Value="{Binding AutoSaveInterval}" Minimum="1" Maximum="60" Width="150" HorizontalAlignment="Right"/>
+                            </DockPanel>
+                            <Separator Background="#2D2D30"/>
+                            <ToggleSwitch IsChecked="{Binding ConfirmBeforeDelete}" Content="Confirm Before Deletion" Foreground="White"/>
+                            <ToggleSwitch IsChecked="{Binding ShowCompletedNotes}" Content="Show Completed Notes" Foreground="White"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
 </UserControl>

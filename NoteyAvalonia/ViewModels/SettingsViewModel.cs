@@ -1,4 +1,7 @@
-﻿using System.Collections.ObjectModel;
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NoteToolAvalonia.Models;
@@ -8,68 +11,70 @@ namespace NoteToolAvalonia.ViewModels;
 
 public partial class SettingsViewModel : ViewModelBase
 {
-    private readonly NavigationService _navigation;
-    private readonly DataService _dataService;
+    public DataService DataService { get; }
 
+    [ObservableProperty] private string _statusMessage = "";
     [ObservableProperty] private string _selectedTheme;
-    [ObservableProperty] private string _accentColor;
-    [ObservableProperty] private double _fontSize;
     [ObservableProperty] private string _selectedFont;
+    [ObservableProperty] private double _fontSize;
     [ObservableProperty] private bool _autoSave;
     [ObservableProperty] private int _autoSaveInterval;
     [ObservableProperty] private bool _confirmBeforeDelete;
     [ObservableProperty] private bool _showCompletedNotes;
     [ObservableProperty] private string _dataFolderPath;
-    [ObservableProperty] private string _statusMessage = string.Empty;
 
-    public ObservableCollection<string> Themes { get; } = new() { "Dark", "Light" };
-    public ObservableCollection<string> Fonts { get; } = new() { "Inter", "Segoe UI", "Arial", "Cascadia Code", "Consolas" };
-    public ObservableCollection<string> AccentColors { get; } = new()
-    {
-        "#007acc", "#3498db", "#2ecc71", "#e74c3c", "#9b59b6",
-        "#f39c12", "#1abc9c", "#e67e22", "#e91e63", "#00bcd4"
-    };
+    public List<string> Themes { get; } = new() { "Dark", "Light", "System" };
+    public List<string> Fonts { get; } = new() { "Inter", "Roboto", "Segoe UI", "Arial" };
 
-    public SettingsViewModel(NavigationService navigation, DataService dataService)
+    public ICommand SaveSettingsCommand { get; }
+    public ICommand ResetDefaultsCommand { get; }
+    public ICommand GoBackCommand { get; }
+
+    public SettingsViewModel(DataService? dataService)
     {
-        _navigation = navigation;
-        _dataService = dataService;
-        var s = _dataService.LoadSettings();
-        _selectedTheme = s.Theme;
-        _accentColor = s.AccentColor;
-        _fontSize = s.FontSize;
-        _selectedFont = s.FontFamily;
-        _autoSave = s.AutoSave;
-        _autoSaveInterval = s.AutoSaveIntervalSeconds;
-        _confirmBeforeDelete = s.ConfirmBeforeDelete;
-        _showCompletedNotes = s.ShowCompletedNotes;
-        _dataFolderPath = dataService.DataFolder;
+        DataService = dataService ?? throw new ArgumentNullException(nameof(dataService));
+        _dataFolderPath = DataService.DataFolder;
+
+        // Load existing settings
+        var settings = DataService.LoadSettings();
+        LoadFromModel(settings);
+
+        SaveSettingsCommand = new RelayCommand(SaveSettings);
+        ResetDefaultsCommand = new RelayCommand(ResetToDefaults);
+        GoBackCommand = new RelayCommand(() => { /* Add navigation logic here */ });
     }
 
-    [RelayCommand]
+    private void LoadFromModel(AppSettings settings)
+    {
+        SelectedTheme = settings.Theme;
+        SelectedFont = settings.FontFamily;
+        FontSize = settings.FontSize;
+        AutoSave = settings.AutoSave;
+        AutoSaveInterval = settings.AutoSaveInterval;
+        ConfirmBeforeDelete = settings.ConfirmBeforeDelete;
+        ShowCompletedNotes = settings.ShowCompletedNotes;
+    }
+
     private void SaveSettings()
     {
-        _dataService.SaveSettings(new AppSettings
+        var settings = new AppSettings
         {
-            Theme = SelectedTheme, AccentColor = AccentColor,
-            FontSize = FontSize, FontFamily = SelectedFont,
-            AutoSave = AutoSave, AutoSaveIntervalSeconds = AutoSaveInterval,
+            Theme = SelectedTheme,
+            FontFamily = SelectedFont,
+            FontSize = (int)FontSize,
+            AutoSave = AutoSave,
+            AutoSaveInterval = AutoSaveInterval,
             ConfirmBeforeDelete = ConfirmBeforeDelete,
             ShowCompletedNotes = ShowCompletedNotes
-        });
+        };
+
+        DataService.SaveSettings(settings);
         StatusMessage = "Settings saved successfully!";
     }
 
-    [RelayCommand]
-    private void ResetDefaults()
+    private void ResetToDefaults()
     {
-        SelectedTheme = "Dark"; AccentColor = "#007acc";
-        FontSize = 14; SelectedFont = "Inter";
-        AutoSave = true; AutoSaveInterval = 30;
-        ConfirmBeforeDelete = true; ShowCompletedNotes = true;
-        StatusMessage = "Defaults restored. Click Save to apply.";
+        LoadFromModel(new AppSettings());
+        StatusMessage = "Reset to default values.";
     }
-
-    [RelayCommand]
-    private void GoBack() => _navigation.NavigateToWelcome();
 }

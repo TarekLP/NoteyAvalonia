@@ -62,22 +62,22 @@ public class DataService
         SaveBoards(boards);
     }
 
-    public AppSettings LoadSettings()
-    {
-        if (!File.Exists(_settingsFile)) return new AppSettings();
-        try
-        {
-            var json = File.ReadAllText(_settingsFile);
-            return JsonSerializer.Deserialize<AppSettings>(json, _jsonOptions) ?? new AppSettings();
-        }
-        catch { return new AppSettings(); }
-    }
+	public AppSettings LoadSettings()
+	{
+		if (!File.Exists(_settingsFile)) return new AppSettings();
+		try
+		{
+			var json = File.ReadAllText(_settingsFile);
+			return JsonSerializer.Deserialize<AppSettings>(json, _jsonOptions) ?? new AppSettings();
+		}
+		catch { return new AppSettings(); }
+	}
 
-    public void SaveSettings(AppSettings settings)
-    {
-        var json = JsonSerializer.Serialize(settings, _jsonOptions);
-        File.WriteAllText(_settingsFile, json);
-    }
+	public void SaveSettings(AppSettings settings)
+	{
+		var json = JsonSerializer.Serialize(settings, _jsonOptions);
+		File.WriteAllText(_settingsFile, json);
+	}
 
-    public string DataFolder => _dataFolder;
+	public string DataFolder => _dataFolder;
 }

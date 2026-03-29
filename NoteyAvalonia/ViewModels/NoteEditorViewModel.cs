@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NoteToolAvalonia.Models;
@@ -9,118 +10,208 @@ namespace NoteToolAvalonia.ViewModels;
 
 public partial class NoteEditorViewModel : ViewModelBase
 {
-    private readonly NavigationService _navigation;
-    private readonly DataService _dataService;
-    private readonly Board _board;
-    private readonly BoardColumn _column;
-    private readonly NoteCard _card;
+	private readonly NavigationService _navigation;
+	private readonly DataService _dataService;
+	private readonly Board _board;
+	private readonly NoteCard _card;
 
-    [ObservableProperty] private string _noteTitle;
-    [ObservableProperty] private string _noteContent;
-    [ObservableProperty] private NotePriority _notePriority;
-    [ObservableProperty] private string _noteTags;
-    [ObservableProperty] private bool _isCompleted;
-    [ObservableProperty] private DateTime _createdAt;
-    [ObservableProperty] private DateTime _lastModified;
-    [ObservableProperty] private string _columnName;
-    [ObservableProperty] private int _wordCount;
-    [ObservableProperty] private int _charCount;
-    [ObservableProperty] private bool _hasUnsavedChanges;
+	[ObservableProperty]
+	private string _noteTitle;
 
-    public NotePriority[] PriorityValues => Enum.GetValues<NotePriority>();
+	[ObservableProperty]
+	private string _noteContent;
 
-    public NoteEditorViewModel(NoteCard card, Board board, BoardColumn column,
-                               NavigationService navigation, DataService dataService)
-    {
-        _card = card;
-        _board = board;
-        _column = column;
-        _navigation = navigation;
-        _dataService = dataService;
-        _noteTitle = card.Title;
-        _noteContent = card.Content;
-        _notePriority = card.Priority;
-        _noteTags = card.Tags;
-        _isCompleted = card.IsCompleted;
-        _createdAt = card.CreatedAt;
-        _lastModified = card.LastModified;
-        _columnName = column.Title;
-        UpdateCounts();
-    }
+	[ObservableProperty]
+	private int _wordCount;
 
-    partial void OnNoteContentChanged(string value) { HasUnsavedChanges = true; UpdateCounts(); }
-    partial void OnNoteTitleChanged(string value) => HasUnsavedChanges = true;
-    partial void OnNotePriorityChanged(NotePriority value) => HasUnsavedChanges = true;
-    partial void OnNoteTagsChanged(string value) => HasUnsavedChanges = true;
-    partial void OnIsCompletedChanged(bool value) => HasUnsavedChanges = true;
+	[ObservableProperty]
+	private int _characterCount;
 
-    private void UpdateCounts()
-    {
-        CharCount = NoteContent?.Length ?? 0;
-        WordCount = string.IsNullOrWhiteSpace(NoteContent) ? 0
-            : NoteContent.Split(new[] { ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries).Length;
-    }
+	[ObservableProperty]
+	private int _lineCount;
 
-    [RelayCommand]
-    private void Save()
-    {
-        _card.Title = NoteTitle;
-        _card.Content = NoteContent;
-        _card.Priority = NotePriority;
-        _card.Tags = NoteTags;
-        _card.IsCompleted = IsCompleted;
-        _card.LastModified = DateTime.Now;
-        LastModified = _card.LastModified;
-        foreach (var col in _board.Columns)
-        {
-            var existing = col.Cards.FirstOrDefault(c => c.Id == _card.Id);
-            if (existing != null)
-            {
-                col.Cards[col.Cards.IndexOf(existing)] = _card;
-                break;
-            }
-        }
-        _board.LastModified = DateTime.Now;
-        _dataService.SaveBoard(_board);
-        HasUnsavedChanges = false;
-    }
+	[ObservableProperty]
+	private bool _hasUnsavedChanges;
 
-    [RelayCommand]
-    private void SaveAndGoBack() { Save(); _navigation.NavigateToBoard(_board); }
+	[ObservableProperty]
+	private bool _isPreviewVisible = true;
 
-    [RelayCommand]
-    private void GoBack()
-    {
-        if (HasUnsavedChanges) Save();
-        _navigation.NavigateToBoard(_board);
-    }
+	[ObservableProperty]
+	private bool _isFullscreen;
 
-    [RelayCommand]
-    private void Delete()
-    {
+	[ObservableProperty]
+	private NotePriority _selectedPriority;
+
+	[ObservableProperty]
+	private string _tags;
+
+	[ObservableProperty]
+	private DateTime _createdAt;
+
+	[ObservableProperty]
+	private DateTime _lastModified;
+
+	[ObservableProperty]
+	private string _statusMessage = "";
+
+	public ObservableCollection<NotePriority> PriorityLevels { get; } = new(Enum.GetValues<NotePriority>());
+
+	public NoteEditorViewModel(NoteCard card, Board board, BoardColumn column,
+							   NavigationService navigation, DataService dataService)
+	{
+		_card = card;
+		_board = board;
+		_navigation = navigation;
+		_dataService = dataService;
+
+		_noteTitle = card.Title;
+		_noteContent = card.Content;
+		_selectedPriority = card.Priority;
+		_tags = card.Tags;
+		_createdAt = card.CreatedAt;
+		_lastModified = card.LastModified;
+
+		UpdateStatistics();
+	}
+
+	partial void OnNoteContentChanged(string value)
+	{
+		HasUnsavedChanges = true;
+		UpdateStatistics();
+	}
+
+	partial void OnNoteTitleChanged(string value)
+	{
+		HasUnsavedChanges = true;
+	}
+
+	partial void OnSelectedPriorityChanged(NotePriority value)
+	{
+		HasUnsavedChanges = true;
+	}
+
+	partial void OnTagsChanged(string value)
+	{
+		HasUnsavedChanges = true;
+	}
+
+	private void UpdateStatistics()
+	{
+		if (string.IsNullOrWhiteSpace(NoteContent))
+		{
+			WordCount = 0;
+			CharacterCount = 0;
+			LineCount = 0;
+		}
+		else
+		{
+			WordCount = NoteContent.Split(new[] { ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries).Length;
+			CharacterCount = NoteContent.Length;
+			LineCount = NoteContent.Split('\n').Length;
+		}
+	}
+
+	[RelayCommand]
+	private void Save()
+	{
+		_card.Title = string.IsNullOrWhiteSpace(NoteTitle) ? "Untitled Note" : NoteTitle;
+		_card.Content = NoteContent ?? string.Empty;
+		_card.Priority = SelectedPriority;
+		_card.Tags = Tags ?? string.Empty;
+		_card.LastModified = DateTime.Now;
+		LastModified = _card.LastModified;
+
+		_dataService.SaveBoard(_board);
+		HasUnsavedChanges = false;
+		StatusMessage = "Saved!";
+
+		System.Threading.Tasks.Task.Delay(2000).ContinueWith(_ =>
+		{
+			Avalonia.Threading.Dispatcher.UIThread.Post(() => StatusMessage = "");
+		});
+	}
+
+	[RelayCommand]
+	private void GoBack()
+	{
+		if (HasUnsavedChanges) Save();
+		_navigation.NavigateToBoard(_board);
+	}
+
+	[RelayCommand]
+	private void Delete()
+	{
 		foreach (var col in _board.Columns)
 		{
 			var toRemove = col.Cards.FirstOrDefault(c => c.Id == _card.Id);
-			if (toRemove != null)
-			{
-				col.Cards.Remove(toRemove);
-				break;
-			}
+			if (toRemove != null) { col.Cards.Remove(toRemove); break; }
 		}
-		_board.LastModified = DateTime.Now;
-        _dataService.SaveBoard(_board);
-        _navigation.NavigateToBoard(_board);
-    }
+		_dataService.SaveBoard(_board);
+		_navigation.NavigateToBoard(_board);
+	}
 
-    [RelayCommand]
-    private void InsertTimestamp()
-    {
-        NoteContent = (NoteContent ?? "") + $"\n[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ";
-    }
+	[RelayCommand]
+	private void TogglePreview()
+	{
+		IsPreviewVisible = !IsPreviewVisible;
+	}
 
-    [RelayCommand]
-    private void InsertCheckbox() { NoteContent = (NoteContent ?? "") + "\nâ˜ "; }
+	[RelayCommand]
+	private void ToggleFullscreen()
+	{
+		IsFullscreen = !IsFullscreen;
+	}
 
-    [RelayCommand]
-    private void InsertSeparator() { NoteContent = (NoteContent ?? "") + "\nâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€\n"; }
+	[RelayCommand]
+	private void InsertBold() => AppendText("**bold text**");
+
+	[RelayCommand]
+	private void InsertItalic() => AppendText("*italic text*");
+
+	[RelayCommand]
+	private void InsertStrikethrough() => AppendText("~~strikethrough~~");
+
+	[RelayCommand]
+	private void InsertCode() => AppendText("`code`");
+
+	[RelayCommand]
+	private void InsertCodeBlock() => AppendText("\n```\ncode block\n```\n");
+
+	[RelayCommand]
+	private void InsertHeading1() => AppendText("\n# Heading 1");
+
+	[RelayCommand]
+	private void InsertHeading2() => AppendText("\n## Heading 2");
+
+	[RelayCommand]
+	private void InsertHeading3() => AppendText("\n### Heading 3");
+
+	[RelayCommand]
+	private void InsertLink() => AppendText("[link text](url)");
+
+	[RelayCommand]
+	private void InsertImage() => AppendText("![alt text](image-url)");
+
+	[RelayCommand]
+	private void InsertBulletList() => AppendText("\n- List item");
+
+	[RelayCommand]
+	private void InsertNumberedList() => AppendText("\n1. List item");
+
+	[RelayCommand]
+	private void InsertCheckbox() => AppendText("\n- [ ] Task item");
+
+	[RelayCommand]
+	private void InsertQuote() => AppendText("\n> Quote text");
+
+	[RelayCommand]
+	private void InsertTable() => AppendText("\n| Header 1 | Header 2 |\n| -------- | -------- |\n| Cell 1   | Cell 2   |");
+
+	[RelayCommand]
+	private void InsertHorizontalRule() => AppendText("\n---\n");
+
+	private void AppendText(string text)
+	{
+		NoteContent = (NoteContent ?? "") + text;
+	}
 }

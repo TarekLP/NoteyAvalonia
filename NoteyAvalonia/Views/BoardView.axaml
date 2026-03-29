@@ -10,52 +10,67 @@
     <conv:PriorityColorConverter x:Key="PriorityColorConverter" />
   </UserControl.Resources>
 
-  <DockPanel>
-    <Border DockPanel.Dock="Top" Background="#252526" Padding="20,12">
-      <DockPanel>
-        <StackPanel Orientation="Horizontal" Spacing="12" DockPanel.Dock="Left">
-          <Button Classes="ghost" Command="{Binding GoBackCommand}" Content="Back" Foreground="MediumPurple" />
-          <TextBlock Text="{Binding Board.Name}" FontSize="20" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
-        </StackPanel>
-      </DockPanel>
-    </Border>
+  <Panel>
+    <DockPanel>
+      <Border DockPanel.Dock="Top" Background="#252526" Padding="20,12">
+        <DockPanel>
+          <StackPanel Orientation="Horizontal" Spacing="12" DockPanel.Dock="Left">
+            <Button Classes="ghost" Command="{Binding GoBackCommand}" Content="Back" Foreground="MediumPurple" />
+            <TextBlock Text="{Binding Board.Name}" FontSize="20" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
+          </StackPanel>
+        </DockPanel>
+      </Border>
 
-    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Padding="14">
-      <ItemsControl ItemsSource="{Binding Columns}">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <StackPanel Orientation="Horizontal" Spacing="0" />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="models:BoardColumn">
-            <!-- Only DragDrop.AllowDrop here, no event handlers -->
-            <Border Classes="kanban-column"
-                    DragDrop.AllowDrop="True"
-                    Width="300" Margin="0,0,10,0">
-              <DockPanel>
-                <TextBlock DockPanel.Dock="Top" Text="{Binding Title}" Foreground="MediumPurple" FontWeight="Bold" Margin="0,0,0,10"/>
+      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Padding="14">
+        <ItemsControl ItemsSource="{Binding Columns}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" Spacing="0" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="models:BoardColumn">
+              <Border Classes="kanban-column"
+                      DragDrop.AllowDrop="True"
+                      DragDrop.DragOver="Column_DragOver"
+                      DragDrop.Drop="Column_Drop"
+                      Width="300" Margin="0,0,10,0">
+                <DockPanel>
+                  <TextBlock DockPanel.Dock="Top" Text="{Binding Title}" Foreground="MediumPurple" FontWeight="Bold" Margin="0,0,0,10"/>
 
-                <ItemsControl ItemsSource="{Binding Cards}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="models:NoteCard">
-                      <Border Classes="note-card"
-                              Background="#333" CornerRadius="4" Padding="10" Margin="0,0,0,8"
-                              PointerPressed="NoteCard_PointerPressed"
-                              Tapped="NoteCard_Tapped">
-                        <StackPanel>
-                          <TextBlock Text="{Binding Title}" Foreground="White" FontWeight="SemiBold"/>
-                          <TextBlock Text="{Binding Content}" Foreground="#AAA" FontSize="12" MaxLines="2"/>
-                        </StackPanel>
-                      </Border>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-              </DockPanel>
-            </Border>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-    </ScrollViewer>
-  </DockPanel>
+                  <ItemsControl ItemsSource="{Binding Cards}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="models:NoteCard">
+                        <Border Classes="note-card"
+                                Background="#333" CornerRadius="4" Padding="10" Margin="0,0,0,8"
+                                PointerPressed="NoteCard_PointerPressed"
+                                DoubleTapped="NoteCard_DoubleTapped">
+                          <StackPanel>
+                            <TextBlock Text="{Binding Title}" Foreground="White" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding Content}" Foreground="#AAA" FontSize="12" MaxLines="2"/>
+                          </StackPanel>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </DockPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </DockPanel>
+
+    <Button HorizontalAlignment="Right" 
+            VerticalAlignment="Bottom" 
+            Margin="30" 
+            Width="50" 
+            Height="50" 
+            CornerRadius="25"
+            Background="MediumPurple"
+            Foreground="White"
+            FontSize="24"
+            Content="+"
+            Command="{Binding AddNoteCommand}" />
+  </Panel>
 </UserControl>

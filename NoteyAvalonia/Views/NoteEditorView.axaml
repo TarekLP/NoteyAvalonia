@@ -1,83 +1,273 @@
 ﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:NoteToolAvalonia.ViewModels"
-             xmlns:conv="using:NoteToolAvalonia.Converters"
              x:Class="NoteToolAvalonia.Views.NoteEditorView"
              x:DataType="vm:NoteEditorViewModel">
 
   <UserControl.Resources>
-    <conv:PriorityColorConverter x:Key="PriorityColorConverter" />
+    <SolidColorBrush x:Key="AccentBrush">#A370F7</SolidColorBrush>
+    <SolidColorBrush x:Key="EditorBg">#0F0F10</SolidColorBrush>
+    <SolidColorBrush x:Key="PreviewBg">#161618</SolidColorBrush>
+    <SolidColorBrush x:Key="ToolbarBg">#1A1A1C</SolidColorBrush>
+    <SolidColorBrush x:Key="BorderClr">#252526</SolidColorBrush>
   </UserControl.Resources>
 
-  <DockPanel>
-    <Border DockPanel.Dock="Top" Background="#252526" Padding="16,10">
+  <UserControl.Styles>
+    <Style Selector="Button.tb">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="#999"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="10,6"/>
+      <Setter Property="Margin" Value="1,0"/>
+      <Setter Property="CornerRadius" Value="4"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.tb:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#2A2A2C"/>
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.tb:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="#333335"/>
+    </Style>
+
+    <Style Selector="Button.ib">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="#999"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Width" Value="36"/>
+      <Setter Property="Height" Value="36"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="CornerRadius" Value="4"/>
+      <Setter Property="FontSize" Value="16"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.ib:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#2A2A2C"/>
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+    <!-- ===== ROW 0: HEADER BAR ===== -->
+    <Border Grid.Row="0"
+            Background="{StaticResource ToolbarBg}"
+            Height="64" Padding="20,0"
+            BorderBrush="{StaticResource BorderClr}" BorderThickness="0,0,0,1">
       <DockPanel>
-        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="8">
-          <Button Classes="ghost" Content="Back" Command="{Binding GoBackCommand}" />
-          <TextBlock Text="" Foreground="#444" VerticalAlignment="Center" />
-          <TextBlock Text="Note Editor" FontSize="16" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center" />
-          <TextBlock Text="{Binding ColumnName, StringFormat='  in column: {0}'}" FontSize="12" Foreground="#666" VerticalAlignment="Center" />
+
+        <!-- Left side -->
+        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          <Button Command="{Binding GoBackCommand}" Classes="ib" Content="&#x2190;" FontSize="20"
+                  ToolTip.Tip="Back to board"/>
+          <Border Width="1" Height="24" Background="#333" Margin="4,0"/>
+          <StackPanel Spacing="2">
+            <TextBox Text="{Binding NoteTitle}"
+                     Watermark="Untitled Note"
+                     BorderThickness="0"
+                     Background="Transparent"
+                     FontSize="18" FontWeight="Bold" Foreground="White"
+                     Width="350"
+                     CaretBrush="{StaticResource AccentBrush}"/>
+            <TextBlock Text="{Binding LastModified, StringFormat='Last modified: {0:MMM dd, yyyy HH:mm}'}"
+                       FontSize="11" Foreground="#666"/>
+          </StackPanel>
         </StackPanel>
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6">
-          <TextBlock Text="unsaved" FontSize="11" Foreground="#e67e22" VerticalAlignment="Center"
-                     IsVisible="{Binding HasUnsavedChanges}" Margin="0,0,8,0" />
-          <Button Classes="accent" Content="Save" Command="{Binding SaveCommand}" />
-          <Button Classes="danger" Content="Delete" Command="{Binding DeleteCommand}" />
+
+        <!-- Right side -->
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <Button Command="{Binding TogglePreviewCommand}" Classes="ib"
+                  Content="&#x1F441;" ToolTip.Tip="Toggle preview"/>
+          <Border Width="1" Height="24" Background="#333" Margin="4,0"/>
+          <Button Content="Save" Command="{Binding SaveCommand}"
+                  Background="{StaticResource AccentBrush}" Foreground="White"
+                  CornerRadius="6" Padding="16,8" FontWeight="SemiBold" BorderThickness="0"/>
+          <Button Command="{Binding DeleteCommand}" Classes="ib"
+                  Foreground="#ff6b6b" Content="&#x1F5D1;" ToolTip.Tip="Delete note"/>
         </StackPanel>
-        <Panel />
+
       </DockPanel>
     </Border>
 
-    <Border DockPanel.Dock="Bottom" Background="#1a1a1c" Padding="16,6">
-      <DockPanel>
-        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="20">
-          <TextBlock Text="{Binding WordCount, StringFormat='Words: {0}'}" FontSize="11" Foreground="#666" />
-          <TextBlock Text="{Binding CharCount, StringFormat='Chars: {0}'}" FontSize="11" Foreground="#666" />
-        </StackPanel>
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="20">
-          <TextBlock Text="{Binding CreatedAt, StringFormat='Created: {0:g}'}" FontSize="11" Foreground="#666" />
-          <TextBlock Text="{Binding LastModified, StringFormat='Modified: {0:g}'}" FontSize="11" Foreground="#666" />
-        </StackPanel>
-        <Panel />
-      </DockPanel>
-    </Border>
+    <!-- ===== ROW 1: FORMATTING TOOLBAR ===== -->
+    <Border Grid.Row="1"
+            Background="{StaticResource ToolbarBg}"
+            Padding="16,6"
+            BorderBrush="{StaticResource BorderClr}" BorderThickness="0,0,0,1">
+      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+        <StackPanel Orientation="Horizontal" Spacing="2">
 
-    <Grid ColumnDefinitions="320,*">
-      <ScrollViewer Grid.Column="0" Padding="20,16">
-        <StackPanel Spacing="16">
-          <StackPanel Spacing="4">
-            <TextBlock Text="TITLE" FontSize="11" FontWeight="Bold" Foreground="#888" />
-            <TextBox Text="{Binding NoteTitle, Mode=TwoWay}" Watermark="Note title..." Padding="10,8" CornerRadius="4" FontSize="16" FontWeight="SemiBold" />
-          </StackPanel>
-          <StackPanel Spacing="4">
-            <TextBlock Text="PRIORITY" FontSize="11" FontWeight="Bold" Foreground="#888" />
-            <ComboBox ItemsSource="{Binding PriorityValues}" SelectedItem="{Binding NotePriority, Mode=TwoWay}" HorizontalAlignment="Stretch" Padding="10,8" CornerRadius="4" />
-            <Border Classes="priority-tag" Background="{Binding NotePriority, Converter={StaticResource PriorityColorConverter}}" HorizontalAlignment="Left" Margin="0,4,0,0">
-              <TextBlock Text="{Binding NotePriority}" FontSize="11" Foreground="White" FontWeight="Bold" />
-            </Border>
-          </StackPanel>
-          <StackPanel Spacing="4">
-            <TextBlock Text="TAGS" FontSize="11" FontWeight="Bold" Foreground="#888" />
-            <TextBox Text="{Binding NoteTags, Mode=TwoWay}" Watermark="e.g. work, urgent, ideas" Padding="10,8" CornerRadius="4" />
-          </StackPanel>
-          <CheckBox IsChecked="{Binding IsCompleted, Mode=TwoWay}" Content="Mark as completed" Foreground="#ccc" />
-          <Separator Background="#333" Margin="0,8" />
-          <StackPanel Spacing="4">
-            <TextBlock Text="QUICK INSERT" FontSize="11" FontWeight="Bold" Foreground="#888" />
-            <WrapPanel>
-              <Button Classes="ghost" Content="Timestamp" Command="{Binding InsertTimestampCommand}" Margin="0,0,6,6" />
-              <Button Classes="ghost" Content="Checkbox" Command="{Binding InsertCheckboxCommand}" Margin="0,0,6,6" />
-              <Button Classes="ghost" Content="Separator" Command="{Binding InsertSeparatorCommand}" Margin="0,0,6,6" />
-            </WrapPanel>
-          </StackPanel>
+          <!-- Headings -->
+          <Button Classes="tb" Content="H1" Command="{Binding InsertHeading1Command}" ToolTip.Tip="Heading 1"/>
+          <Button Classes="tb" Content="H2" Command="{Binding InsertHeading2Command}" ToolTip.Tip="Heading 2"/>
+          <Button Classes="tb" Content="H3" Command="{Binding InsertHeading3Command}" ToolTip.Tip="Heading 3"/>
+
+          <Border Width="1" Height="22" Background="#333" Margin="6,0"/>
+
+          <!-- Text Formatting -->
+          <Button Classes="tb" Content="B" FontWeight="Bold"
+                  Command="{Binding InsertBoldCommand}" ToolTip.Tip="Bold"/>
+          <Button Classes="tb" Content="I" FontStyle="Italic"
+                  Command="{Binding InsertItalicCommand}" ToolTip.Tip="Italic"/>
+          <Button Classes="tb" Content="S"
+                  Command="{Binding InsertStrikethroughCommand}" ToolTip.Tip="Strikethrough"/>
+          <Button Classes="tb" Content="&#60;/&#62;"
+                  Command="{Binding InsertCodeCommand}" ToolTip.Tip="Inline code"/>
+
+          <Border Width="1" Height="22" Background="#333" Margin="6,0"/>
+
+          <!-- Lists -->
+          <Button Classes="tb" Content="&#x2022; List"
+                  Command="{Binding InsertBulletListCommand}" ToolTip.Tip="Bullet list"/>
+          <Button Classes="tb" Content="1. List"
+                  Command="{Binding InsertNumberedListCommand}" ToolTip.Tip="Numbered list"/>
+          <Button Classes="tb" Content="&#x2610; Task"
+                  Command="{Binding InsertCheckboxCommand}" ToolTip.Tip="Task list"/>
+
+          <Border Width="1" Height="22" Background="#333" Margin="6,0"/>
+
+          <!-- Insert -->
+          <Button Classes="tb" Content="Link"
+                  Command="{Binding InsertLinkCommand}" ToolTip.Tip="Insert link"/>
+          <Button Classes="tb" Content="Image"
+                  Command="{Binding InsertImageCommand}" ToolTip.Tip="Insert image"/>
+          <Button Classes="tb" Content="Quote"
+                  Command="{Binding InsertQuoteCommand}" ToolTip.Tip="Block quote"/>
+          <Button Classes="tb" Content="Table"
+                  Command="{Binding InsertTableCommand}" ToolTip.Tip="Insert table"/>
+          <Button Classes="tb" Content="Code Block"
+                  Command="{Binding InsertCodeBlockCommand}" ToolTip.Tip="Code block"/>
+          <Button Classes="tb" Content="&#x2014;"
+                  Command="{Binding InsertHorizontalRuleCommand}" ToolTip.Tip="Horizontal rule"/>
+
+          <Border Width="1" Height="22" Background="#333" Margin="6,0"/>
+
+          <!-- Priority -->
+          <TextBlock Text="Priority:" VerticalAlignment="Center" Foreground="#666" Margin="6,0,6,0" FontSize="12"/>
+          <ComboBox ItemsSource="{Binding PriorityLevels}"
+                    SelectedItem="{Binding SelectedPriority}"
+                    MinWidth="110"
+                    Background="#2A2A2C"
+                    BorderThickness="1"
+                    BorderBrush="#333"
+                    CornerRadius="4"
+                    FontSize="12"/>
+
+          <Border Width="1" Height="22" Background="#333" Margin="6,0"/>
+
+          <!-- Tags -->
+          <TextBlock Text="Tags:" VerticalAlignment="Center" Foreground="#666" Margin="6,0,6,0" FontSize="12"/>
+          <TextBox Text="{Binding Tags}"
+                   Watermark="tag1, tag2..."
+                   Background="#2A2A2C"
+                   BorderThickness="1"
+                   BorderBrush="#333"
+                   CornerRadius="4"
+                   Padding="8,4"
+                   Foreground="White"
+                   MinWidth="160"
+                   FontSize="12"
+                   CaretBrush="{StaticResource AccentBrush}"/>
+
         </StackPanel>
       </ScrollViewer>
-      <Border Grid.Column="0" Width="1" Background="#333" HorizontalAlignment="Right" />
-      <DockPanel Grid.Column="1">
-        <TextBlock DockPanel.Dock="Top" Text="CONTENT" FontSize="11" FontWeight="Bold" Foreground="#888" Margin="20,16,20,8" />
-        <TextBox Text="{Binding NoteContent, Mode=TwoWay}" AcceptsReturn="True" TextWrapping="Wrap"
-                 Classes="editor" Margin="16,0,16,16" FontSize="14" Watermark="Start writing your note here..." />
-      </DockPanel>
+    </Border>
+
+    <!-- ===== ROW 2: EDITOR + PREVIEW ===== -->
+    <Grid Grid.Row="2">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+
+      <!-- Editor Panel -->
+      <Border Grid.Column="0" Background="{StaticResource EditorBg}">
+        <DockPanel>
+          <Border DockPanel.Dock="Top" Background="#1A1A1C" Padding="16,6"
+                  BorderBrush="#252526" BorderThickness="0,0,0,1">
+            <TextBlock Text="EDITOR" FontSize="10" FontWeight="Black" Foreground="#555" LetterSpacing="1.5"/>
+          </Border>
+          <TextBox Text="{Binding NoteContent, Mode=TwoWay}"
+                   AcceptsReturn="True"
+                   TextWrapping="Wrap"
+                   BorderThickness="0"
+                   Background="Transparent"
+                   Foreground="#E0E0E0"
+                   Padding="28,20"
+                   FontSize="15"
+                   FontFamily="Cascadia Code, Consolas, monospace"
+                   CaretBrush="{StaticResource AccentBrush}"/>
+        </DockPanel>
+      </Border>
+
+      <!-- Splitter (only visible when preview is on) -->
+      <GridSplitter Grid.Column="1"
+                    Background="#252526"
+                    Width="3"
+                    ResizeDirection="Columns"
+                    IsVisible="{Binding IsPreviewVisible}"/>
+
+      <!-- Preview Panel -->
+      <Border Grid.Column="2"
+              Background="{StaticResource PreviewBg}"
+              IsVisible="{Binding IsPreviewVisible}">
+        <DockPanel>
+          <Border DockPanel.Dock="Top" Background="#1A1A1C" Padding="16,6"
+                  BorderBrush="#252526" BorderThickness="0,0,0,1">
+            <TextBlock Text="PREVIEW" FontSize="10" FontWeight="Black" Foreground="#555" LetterSpacing="1.5"/>
+          </Border>
+          <ScrollViewer Padding="28,20">
+            <SelectableTextBlock Text="{Binding NoteContent}"
+                                  TextWrapping="Wrap"
+                                  Foreground="#D4D4D4"
+                                  FontSize="15"
+                                  LineHeight="24"/>
+          </ScrollViewer>
+        </DockPanel>
+      </Border>
     </Grid>
-  </DockPanel>
+
+    <!-- ===== ROW 3: STATUS BAR ===== -->
+    <Border Grid.Row="3"
+            Background="{StaticResource ToolbarBg}"
+            Padding="20,6"
+            BorderBrush="{StaticResource BorderClr}" BorderThickness="0,1,0,0">
+      <DockPanel>
+
+        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="20">
+          <TextBlock FontSize="11" Foreground="#555">
+            <Run Text="{Binding WordCount}"/>
+            <Run Text=" words"/>
+          </TextBlock>
+          <TextBlock FontSize="11" Foreground="#555">
+            <Run Text="{Binding CharacterCount}"/>
+            <Run Text=" chars"/>
+          </TextBlock>
+          <TextBlock FontSize="11" Foreground="#555">
+            <Run Text="{Binding LineCount}"/>
+            <Run Text=" lines"/>
+          </TextBlock>
+          <TextBlock FontSize="11" Foreground="#555"
+                     Text="{Binding CreatedAt, StringFormat='Created: {0:MMM dd, yyyy}'}"/>
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="10">
+          <TextBlock Text="{Binding StatusMessage}"
+                     Foreground="#2ecc71"
+                     FontSize="12"
+                     FontWeight="SemiBold"
+                     VerticalAlignment="Center"/>
+          <Border Background="#ff6b6b" CornerRadius="4" Padding="8,2"
+                  IsVisible="{Binding HasUnsavedChanges}">
+            <TextBlock Text="Unsaved" FontSize="10" Foreground="White" FontWeight="Bold"/>
+          </Border>
+        </StackPanel>
+
+      </DockPanel>
+    </Border>
+
+  </Grid>
 </UserControl>

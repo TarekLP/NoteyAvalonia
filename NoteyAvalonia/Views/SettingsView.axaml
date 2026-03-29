@@ -4,40 +4,43 @@
              x:Class="NoteToolAvalonia.Views.SettingsView"
              x:DataType="vm:SettingsViewModel">
 
-  <ScrollViewer Padding="32,24">
+  <UserControl.Styles>
+    <Style Selector="Button.accent">
+      <Setter Property="Background" Value="#800080" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.accent:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#a000a0" />
+    </Style>
+    <Style Selector="TextBlock.section-title">
+      <Setter Property="Foreground" Value="#bf55ec" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+  </UserControl.Styles>
+
+  <ScrollViewer Padding="32,24" Background="#121212">
     <StackPanel MaxWidth="700" Spacing="20">
 
       <DockPanel>
         <Button DockPanel.Dock="Left" Classes="ghost" Content="Back" Command="{Binding GoBackCommand}" />
         <TextBlock Text="Settings" FontSize="28" FontWeight="Bold" Foreground="White"
                    VerticalAlignment="Center" Margin="16,0,0,0" />
-        <Panel />
       </DockPanel>
 
-      <Border Classes="card">
+      <Border Background="#1e1e1e" CornerRadius="8" Padding="20">
         <StackPanel Spacing="14">
           <TextBlock Text="Appearance" Classes="section-title" FontSize="18" />
+          
           <DockPanel>
             <TextBlock Text="Theme" Width="160" Foreground="#ccc" VerticalAlignment="Center" />
             <ComboBox ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme, Mode=TwoWay}" MinWidth="200" />
           </DockPanel>
-          <DockPanel>
-            <TextBlock Text="Accent Color" Width="160" Foreground="#ccc" VerticalAlignment="Center" />
-            <ComboBox ItemsSource="{Binding AccentColors}" SelectedItem="{Binding AccentColor, Mode=TwoWay}" MinWidth="200">
-              <ComboBox.ItemTemplate>
-                <DataTemplate>
-                  <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Border Width="16" Height="16" CornerRadius="3" Background="{Binding}" />
-                    <TextBlock Text="{Binding}" VerticalAlignment="Center" />
-                  </StackPanel>
-                </DataTemplate>
-              </ComboBox.ItemTemplate>
-            </ComboBox>
-          </DockPanel>
+
           <DockPanel>
             <TextBlock Text="Font" Width="160" Foreground="#ccc" VerticalAlignment="Center" />
             <ComboBox ItemsSource="{Binding Fonts}" SelectedItem="{Binding SelectedFont, Mode=TwoWay}" MinWidth="200" />
           </DockPanel>
+
           <DockPanel>
             <TextBlock Text="{Binding FontSize, StringFormat='Font Size: {0:F0}'}" Width="160" Foreground="#ccc" VerticalAlignment="Center" />
             <Slider Value="{Binding FontSize, Mode=TwoWay}" Minimum="10" Maximum="24" TickFrequency="1" IsSnapToTickEnabled="True" MinWidth="200" />
@@ -45,7 +48,7 @@
         </StackPanel>
       </Border>
 
-      <Border Classes="card">
+      <Border Background="#1e1e1e" CornerRadius="8" Padding="20">
         <StackPanel Spacing="14">
           <TextBlock Text="Behavior" Classes="section-title" FontSize="18" />
           <CheckBox IsChecked="{Binding AutoSave, Mode=TwoWay}" Content="Auto-save notes" Foreground="#ccc" />
@@ -58,12 +61,12 @@
         </StackPanel>
       </Border>
 
-      <Border Classes="card">
+      <Border Background="#1e1e1e" CornerRadius="8" Padding="20">
         <StackPanel Spacing="10">
           <TextBlock Text="Data Storage" Classes="section-title" FontSize="18" />
           <DockPanel>
             <TextBlock Text="Data folder:" Foreground="#888" Width="100" VerticalAlignment="Center" />
-            <TextBox Text="{Binding DataFolderPath}" IsReadOnly="True" Foreground="#999" Padding="8,6" CornerRadius="4" />
+            <TextBox Text="{Binding DataFolderPath}" IsReadOnly="True" Foreground="#999" Padding="8,6" CornerRadius="4" Background="#2a2a2a" BorderThickness="0"/>
           </DockPanel>
         </StackPanel>
       </Border>

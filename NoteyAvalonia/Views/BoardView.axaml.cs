@@ -25,16 +25,17 @@ public partial class BoardView : UserControl
 			_isDragging = false;
 			_draggedCard = card;
 
-			// Just pass an empty DataTransfer — we track the card via the field
 			var result = await DragDrop.DoDragDropAsync(e, new DataTransfer(), DragDropEffects.Move);
 
-			_isDragging = result == DragDropEffects.Move;
+			if (result != DragDropEffects.None)
+			{
+				_isDragging = true;
+			}
 		}
 	}
 
 	private void Column_DragOver(object? sender, DragEventArgs e)
 	{
-		// Check our field instead of the data transfer object
 		e.DragEffects = _draggedCard != null
 			? DragDropEffects.Move
 			: DragDropEffects.None;
@@ -55,7 +56,7 @@ public partial class BoardView : UserControl
 		_draggedCard = null;
 	}
 
-	private void NoteCard_Tapped(object? sender, TappedEventArgs e)
+	private void NoteCard_DoubleTapped(object? sender, TappedEventArgs e)
 	{
 		if (_isDragging)
 		{

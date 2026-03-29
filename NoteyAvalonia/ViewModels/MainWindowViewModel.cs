@@ -14,7 +14,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private ViewModelBase? _currentView;
 
     [ObservableProperty]
-    private string _title = "NoteTool";
+    private string _title = "Notey";
 
     [ObservableProperty]
     private bool _isSidebarVisible = true;
@@ -28,25 +28,25 @@ public partial class MainWindowViewModel : ViewModelBase
     public void NavigateToWelcome()
     {
         CurrentView = new WelcomeViewModel(_navigation, DataService);
-        Title = "NoteTool - Welcome";
+        Title = "Notey - Welcome";
     }
 
     public void NavigateToBoard(Board board)
     {
         CurrentView = new BoardViewModel(board, _navigation, DataService);
-        Title = $"NoteTool - {board.Name}";
+        Title = $"Notey - {board.Name}";
     }
 
     public void NavigateToNoteEditor(NoteCard card, Board board, BoardColumn column)
     {
         CurrentView = new NoteEditorViewModel(card, board, column, _navigation, DataService);
-        Title = $"NoteTool - Editing: {card.Title}";
+        Title = $"Notey - Editing: {card.Title}";
     }
 
     public void NavigateToSettings()
     {
-        CurrentView = new SettingsViewModel(_navigation, DataService);
-        Title = "NoteTool - Settings";
+        CurrentView = new SettingsViewModel(DataService);
+        Title = "Notey - Settings";
     }
 
     [RelayCommand]

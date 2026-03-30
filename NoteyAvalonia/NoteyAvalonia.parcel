@@ -2,7 +2,7 @@
     "GeneralSettings": {
         "NetProjectPath": "NoteyAvalonia.csproj",
         "ApplicationName": "NoteyAvalonia",
-        "Version": "1.0.0",
+        "Version": "1.1.0",
         "PackageName": {
             "$type": "msbuild",
             "property": "AssemblyName"
@@ -13,11 +13,17 @@
         }
     },
     "LinuxSettings": {
-        "CreateBinSymlink": "True"
+        "InstallDirName": "notey",
+        "AppIcon": "Assets/WindowIcon.ico",
+        "Maintainer": "Greedman",
+        "CreateBinSymlink": "True",
+        "DesktopCategory": "TextEditor",
+        "CopyrightFile": "../LICENSE.txt"
     },
     "Win32Settings": {
         "InstallerIcon": "Assets/NoteyDefault.png",
         "Company": "Greedman",
+        "InstallerLicense": "../LICENSE.txt",
         "InstallerRequiresAdmin": "False",
         "IncludeUninstaller": "True"
     },
@@ -28,6 +34,7 @@
     },
     "PublishSettings": {
         "PublishSingleFile": "True",
+        "PublishReadyToRun": "True",
         "ExtraBuildProperties": {}
     }
 }

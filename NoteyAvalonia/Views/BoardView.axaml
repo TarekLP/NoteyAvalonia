@@ -1,68 +1,106 @@
-﻿    <UserControl
-        xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:NoteToolAvalonia.ViewModels"
-        xmlns:models="using:NoteToolAvalonia.Models"
-        x:Class="NoteToolAvalonia.Views.BoardView"
-        x:DataType="vm:BoardViewModel">
+﻿<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:NoteToolAvalonia.ViewModels"
+    xmlns:models="using:NoteToolAvalonia.Models"
+    x:Class="NoteToolAvalonia.Views.BoardView"
+    x:DataType="vm:BoardViewModel">
 
-      <ScrollViewer HorizontalScrollBarVisibility="Auto">
-        <ItemsControl ItemsSource="{Binding Columns}">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <StackPanel Orientation="Horizontal"/>
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
+  <ScrollViewer HorizontalScrollBarVisibility="Auto" Padding="16">
 
-          <ItemsControl.ItemTemplate>
-            <DataTemplate>
-              <Border Background="#2D2D30" Margin="10" Padding="10" CornerRadius="8"
-                      DragDrop.AllowDrop="True"
-                      Name="ColumnBorder">
-                <StackPanel Width="250">
+    <ItemsControl ItemsSource="{Binding Columns}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <StackPanel Orientation="Horizontal"/>
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
 
-                  <!-- Column Title -->
-                  <TextBlock 
-                    Text="{Binding Title}"
-                    FontWeight="Bold"
-                    Foreground="White"/>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate>
+          <Border Classes="card"
+                  Margin="10"
+                  Padding="10"
+                  CornerRadius="8"
+                  DragDrop.AllowDrop="True"
+                  Name="ColumnBorder">
 
-                  <!-- Notes / Cards -->
-                  <ItemsControl ItemsSource="{Binding Cards}">
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate>
-                        <Border Background="#3A3A3D" Margin="5" Padding="8" CornerRadius="6"
-                                PointerPressed="NoteCard_PointerPressed"
-                                PointerMoved="NoteCard_PointerMoved"
-                                PointerReleased="NoteCard_PointerReleased"
-                                DoubleTapped="NoteCard_DoubleTapped">
-                          <StackPanel>
+            <!-- Column Context Menu -->
+            <Border.ContextMenu>
+              <ContextMenu>
+                <MenuItem Header="Add Note"
+                          Command="{Binding $parent[UserControl].DataContext.AddCardCommand}"
+                          CommandParameter="{Binding}" />
+                <MenuItem Header="Delete Column"
+                          Command="{Binding $parent[UserControl].DataContext.DeleteColumnCommand}"
+                          CommandParameter="{Binding}" />
+              </ContextMenu>
+            </Border.ContextMenu>
 
-                            <!-- Content -->
-                            <TextBlock 
-                              Text="{Binding Content}"
-                              Foreground="#DDD"
-                              TextWrapping="Wrap"
-                              MaxLines="2"
-                              TextTrimming="CharacterEllipsis"/>
+            <StackPanel Width="250">
 
-                            <!-- Last Modified -->
-                            <TextBlock 
-                              Text="{Binding LastModified, StringFormat='Last modified: {0:MMM dd, yyyy HH:mm}'}"
-                              Foreground="#888"
-                              FontSize="10"/>
+              <!-- Column Title -->
+              <TextBlock Text="{Binding Title}" 
+                         FontWeight="SemiBold"
+                         Foreground="{StaticResource Brush.TextPrimary}"
+                         Classes="subtitle"
+                         Margin="0,0,0,8"/>
 
-                          </StackPanel>
-                        </Border>
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
+              <!-- Notes / Cards -->
+              <ItemsControl ItemsSource="{Binding Cards}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border Classes="note-card"
+                            PointerPressed="NoteCard_PointerPressed"
+                            PointerMoved="NoteCard_PointerMoved"
+                            PointerReleased="NoteCard_PointerReleased"
+                            DoubleTapped="NoteCard_DoubleTapped">
 
-                </StackPanel>
-              </Border>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
+                      <!-- Card Context Menu -->
+                      <Border.ContextMenu>
+                        <ContextMenu>
+                          <MenuItem Header="Open"
+                                    Command="{Binding $parent[UserControl].DataContext.OpenCardCommand}"
+                                    CommandParameter="{Binding}" />
+                          <MenuItem Header="Delete"
+                                    Command="{Binding $parent[UserControl].DataContext.DeleteCardCommand}"
+                                    CommandParameter="{Binding}" />
+                          <Separator/>
+                          <MenuItem Header="Toggle Complete"
+                                    Command="{Binding $parent[UserControl].DataContext.ToggleCardCompletedCommand}"
+                                    CommandParameter="{Binding}" />
+                          <Separator/>
+                          <!-- Priority Submenu -->
+                          <MenuItem Header="Set Priority">
+                            <MenuItem Header="None" Click="Priority_None_Click"/>
+                            <MenuItem Header="Low" Click="Priority_Low_Click"/>
+                            <MenuItem Header="Medium" Click="Priority_Medium_Click"/>
+                            <MenuItem Header="High" Click="Priority_High_Click"/>
+                            <MenuItem Header="Critical" Click="Priority_Critical_Click"/>
+                          </MenuItem>
+                        </ContextMenu>
+                      </Border.ContextMenu>
 
-        </ItemsControl>
-      </ScrollViewer>
-    </UserControl>
+                      <StackPanel>
+                        <TextBlock Text="{Binding Title}"
+                                   Foreground="{StaticResource Brush.TextPrimary}"
+                                   TextWrapping="Wrap"
+                                   MaxLines="2"
+                                   TextTrimming="CharacterEllipsis"
+                                   FontSize="14"/>
+                        <TextBlock Text="{Binding LastModified, StringFormat='Last modified: {0:MMM dd, yyyy HH:mm}'}"
+                                   Foreground="{StaticResource Brush.TextSecondary}"
+                                   FontSize="10"
+                                   Margin="0,4,0,0"/>
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+  </ScrollViewer>
+</UserControl>

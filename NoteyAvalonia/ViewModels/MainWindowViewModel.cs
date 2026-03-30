@@ -1,9 +1,12 @@
 ﻿using Avalonia;
+using Avalonia.Data.Converters;
 using Avalonia.Styling;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NoteToolAvalonia.Models;
 using NoteToolAvalonia.Services;
+using System;
+using System.Globalization;
 
 namespace NoteToolAvalonia.ViewModels;
 
@@ -79,7 +82,23 @@ public partial class MainWindowViewModel : ViewModelBase
 		CurrentView = new SettingsViewModel(DataService, _navigation);
 		Title = "Notey - Settings";
 	}
+	public class BoolToDoubleConverter : IValueConverter
+	{
+		public double TrueValue { get; set; }
+		public double FalseValue { get; set; }
 
+		public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+		{
+			if (value is bool b)
+				return b ? TrueValue : FalseValue;
+			return FalseValue;
+		}
+
+		public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+		{
+			throw new NotImplementedException();
+		}
+	}
 	[RelayCommand]
 	private void GoHome() => NavigateToWelcome();
 

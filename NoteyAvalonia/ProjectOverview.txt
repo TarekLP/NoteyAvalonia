@@ -1,4 +1,4 @@
-﻿PROJECT OVERVIEW - 03/29/2026 11:51:20
+﻿PROJECT OVERVIEW - 03/30/2026 10:35:31
 
 ========================================
 FOLDER: Models
@@ -14,7 +14,7 @@ public class AppSettings
 	public string FontFamily { get; set; } = "Inter";
 	public int FontSize { get; set; } = 14;
 	public bool AutoSave { get; set; } = true;
-	public int AutoSaveInterval { get; set; } = 30;
+	public int AutoSaveInterval { get; set; } = 2;
 	public bool ConfirmBeforeDelete { get; set; } = true;
 	public bool ShowCompletedNotes { get; set; } = true;
 }
@@ -238,118 +238,181 @@ FOLDER: Styles
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
+  <Styles.Resources>
+
+    <!-- Surfaces -->
+    <Color x:Key="Color.Background">#1e1e1e</Color>
+    <Color x:Key="Color.Surface">#252526</Color>
+    <Color x:Key="Color.SurfaceAlt">#2d2d30</Color>
+
+    <!-- Borders -->
+    <Color x:Key="Color.Border">#3e3e42</Color>
+
+    <!-- Text -->
+    <Color x:Key="Color.TextPrimary">#ffffff</Color>
+    <Color x:Key="Color.TextSecondary">#888888</Color>
+
+    <!-- Accent (Purple System) -->
+    <Color x:Key="Color.Accent">#6a1b9a</Color>
+    <Color x:Key="Color.AccentHover">#7b1fa2</Color>
+
+    <!-- Semantic Brushes -->
+    <SolidColorBrush x:Key="Brush.Background" Color="{StaticResource Color.Background}"/>
+    <SolidColorBrush x:Key="Brush.Surface" Color="{StaticResource Color.Surface}"/>
+    <SolidColorBrush x:Key="Brush.SurfaceAlt" Color="{StaticResource Color.SurfaceAlt}"/>
+    <SolidColorBrush x:Key="Brush.Border" Color="{StaticResource Color.Border}"/>
+    <SolidColorBrush x:Key="Brush.TextPrimary" Color="{StaticResource Color.TextPrimary}"/>
+    <SolidColorBrush x:Key="Brush.TextSecondary" Color="{StaticResource Color.TextSecondary}"/>
+    <SolidColorBrush x:Key="Brush.Accent" Color="{StaticResource Color.Accent}"/>
+    <SolidColorBrush x:Key="Brush.AccentHover" Color="{StaticResource Color.AccentHover}"/>
+
+  </Styles.Resources>
+
+  <!-- =========================
+       BASE TYPOGRAPHY
+       ========================= -->
   <Style Selector="TemplatedControl">
-    <Setter Property="FontFamily" Value="Segoe UI" />
+    <Setter Property="FontFamily" Value="Inter"/>
+    <Setter Property="FontSize" Value="14"/>
   </Style>
 
+  <!-- =========================
+       LAYOUT / SURFACES
+       ========================= -->
   <Style Selector="Border.card">
-    <Setter Property="Background" Value="#2d2d30" />
-    <Setter Property="CornerRadius" Value="8" />
-    <Setter Property="Padding" Value="16" />
-    <Setter Property="Margin" Value="4" />
-    <Setter Property="BorderBrush" Value="#3e3e42" />
-    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Background" Value="{StaticResource Brush.Surface}"/>
+    <Setter Property="CornerRadius" Value="8"/>
+    <Setter Property="Padding" Value="16"/>
+    <Setter Property="Margin" Value="4"/>
+    <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}"/>
+    <Setter Property="BorderThickness" Value="1"/>
   </Style>
+
   <Style Selector="Border.card:pointerover">
-    <Setter Property="BorderBrush" Value="#6a1b9a" />
+    <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
   </Style>
 
   <Style Selector="Border.kanban-column">
-    <Setter Property="Background" Value="#252526" />
-    <Setter Property="CornerRadius" Value="10" />
-    <Setter Property="Padding" Value="12" />
-    <Setter Property="Margin" Value="6" />
-    <Setter Property="MinWidth" Value="280" />
-    <Setter Property="MaxWidth" Value="340" />
+    <Setter Property="Background" Value="{StaticResource Brush.Background}"/>
+    <Setter Property="CornerRadius" Value="10"/>
+    <Setter Property="Padding" Value="12"/>
+    <Setter Property="Margin" Value="6"/>
+    <Setter Property="MinWidth" Value="280"/>
+    <Setter Property="MaxWidth" Value="340"/>
   </Style>
 
   <Style Selector="Border.note-card">
-    <Setter Property="Background" Value="#333337" />
-    <Setter Property="CornerRadius" Value="6" />
-    <Setter Property="Padding" Value="12" />
-    <Setter Property="Margin" Value="0,4" />
-    <Setter Property="BorderBrush" Value="#3e3e42" />
-    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Background" Value="{StaticResource Brush.SurfaceAlt}"/>
+    <Setter Property="CornerRadius" Value="6"/>
+    <Setter Property="Padding" Value="12"/>
+    <Setter Property="Margin" Value="0,4"/>
+    <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}"/>
+    <Setter Property="BorderThickness" Value="1"/>
   </Style>
+
   <Style Selector="Border.note-card:pointerover">
-    <Setter Property="BorderBrush" Value="#6a1b9a" />
-    <Setter Property="Background" Value="#3a3a3e" />
+    <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
+    <Setter Property="Background" Value="{StaticResource Brush.Surface}"/>
   </Style>
 
   <Style Selector="Border.sidebar">
-    <Setter Property="Background" Value="#1e1e1e" />
-    <Setter Property="Padding" Value="0" />
+    <Setter Property="Background" Value="{StaticResource Brush.Background}"/>
   </Style>
 
+  <!-- =========================
+       BUTTONS
+       ========================= -->
+
+  <!-- Sidebar Button -->
   <Style Selector="Button.sidebar-btn">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="Foreground" Value="#cccccc" />
-    <Setter Property="HorizontalAlignment" Value="Stretch" />
-    <Setter Property="HorizontalContentAlignment" Value="Left" />
-    <Setter Property="Padding" Value="16,12" />
-    <Setter Property="CornerRadius" Value="0" />
-    <Setter Property="FontSize" Value="14" />
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}"/>
+    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    <Setter Property="HorizontalContentAlignment" Value="Left"/>
+    <Setter Property="Padding" Value="12,10"/>
+    <Setter Property="Margin" Value="0,2"/>
+    <Setter Property="CornerRadius" Value="6"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Cursor" Value="Hand"/>
   </Style>
+
   <Style Selector="Button.sidebar-btn:pointerover /template/ ContentPresenter">
-    <Setter Property="Background" Value="#2d2d30" />
+    <Setter Property="Background" Value="{StaticResource Brush.SurfaceAlt}"/>
   </Style>
 
+  <Style Selector="Button.sidebar-btn:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource Brush.Surface}"/>
+  </Style>
+
+  <!-- Accent Button -->
   <Style Selector="Button.accent">
-    <Setter Property="Background" Value="#6a1b9a" />
-    <Setter Property="Foreground" Value="White" />
-    <Setter Property="CornerRadius" Value="6" />
-    <Setter Property="Padding" Value="16,10" />
-    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
+    <Setter Property="Foreground" Value="White"/>
+    <Setter Property="CornerRadius" Value="6"/>
+    <Setter Property="Padding" Value="16,10"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
   </Style>
+
   <Style Selector="Button.accent:pointerover /template/ ContentPresenter">
-    <Setter Property="Background" Value="#8e24aa" />
+    <Setter Property="Background" Value="{StaticResource Brush.AccentHover}"/>
   </Style>
 
+  <!-- Danger Button -->
   <Style Selector="Button.danger">
-    <Setter Property="Background" Value="#c0392b" />
-    <Setter Property="Foreground" Value="White" />
-    <Setter Property="CornerRadius" Value="6" />
-    <Setter Property="Padding" Value="16,10" />
+    <Setter Property="Background" Value="#c0392b"/>
+    <Setter Property="Foreground" Value="White"/>
+    <Setter Property="CornerRadius" Value="6"/>
+    <Setter Property="Padding" Value="16,10"/>
   </Style>
+
   <Style Selector="Button.danger:pointerover /template/ ContentPresenter">
-    <Setter Property="Background" Value="#e74c3c" />
+    <Setter Property="Background" Value="#e74c3c"/>
   </Style>
 
+  <!-- Ghost Button -->
   <Style Selector="Button.ghost">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="Foreground" Value="#999" />
-    <Setter Property="CornerRadius" Value="6" />
-    <Setter Property="Padding" Value="10,6" />
-  </Style>
-  <Style Selector="Button.ghost:pointerover /template/ ContentPresenter">
-    <Setter Property="Background" Value="#333" />
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Foreground" Value="{StaticResource Brush.TextSecondary}"/>
+    <Setter Property="CornerRadius" Value="6"/>
+    <Setter Property="Padding" Value="10,6"/>
   </Style>
 
+  <Style Selector="Button.ghost:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource Brush.SurfaceAlt}"/>
+  </Style>
+
+  <!-- =========================
+       TEXT
+       ========================= -->
   <Style Selector="TextBlock.section-title">
-    <Setter Property="FontSize" Value="22" />
-    <Setter Property="FontWeight" Value="Bold" />
-    <Setter Property="Foreground" Value="#ffffff" />
-    <Setter Property="Margin" Value="0,0,0,12" />
+    <Setter Property="FontSize" Value="22"/>
+    <Setter Property="FontWeight" Value="Bold"/>
+    <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}"/>
+    <Setter Property="Margin" Value="0,0,0,12"/>
   </Style>
 
   <Style Selector="TextBlock.subtitle">
-    <Setter Property="FontSize" Value="13" />
-    <Setter Property="Foreground" Value="#888" />
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="Foreground" Value="{StaticResource Brush.TextSecondary}"/>
   </Style>
 
+  <!-- =========================
+       TAGS / EDITOR
+       ========================= -->
   <Style Selector="Border.priority-tag">
-    <Setter Property="CornerRadius" Value="4" />
-    <Setter Property="Padding" Value="8,3" />
-    <Setter Property="Margin" Value="0,4,4,0" />
+    <Setter Property="CornerRadius" Value="4"/>
+    <Setter Property="Padding" Value="8,3"/>
+    <Setter Property="Margin" Value="0,4,4,0"/>
+    <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
   </Style>
 
   <Style Selector="TextBox.editor">
-    <Setter Property="Background" Value="#1e1e1e" />
-    <Setter Property="Foreground" Value="#d4d4d4" />
-    <Setter Property="BorderBrush" Value="#3e3e42" />
-    <Setter Property="CornerRadius" Value="6" />
-    <Setter Property="Padding" Value="12" />
-    <Setter Property="FontFamily" Value="Cascadia Code, Consolas, monospace" />
+    <Setter Property="Background" Value="{StaticResource Brush.Background}"/>
+    <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}"/>
+    <Setter Property="CornerRadius" Value="6"/>
+    <Setter Property="Padding" Value="12"/>
+    <Setter Property="FontFamily" Value="Cascadia Code, Consolas, monospace"/>
   </Style>
 
 </Styles>
@@ -362,38 +425,38 @@ FOLDER: ViewModels
 
 --- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\ViewModels\BoardViewModel.cs ---
 ----------------------------------------
-using System;
-using System.Collections.ObjectModel;
-using System.Linq;
+using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NoteToolAvalonia.Models;
 using NoteToolAvalonia.Services;
+using System;
+using System.Collections.ObjectModel;
+using System.Linq;
 
 namespace NoteToolAvalonia.ViewModels;
 
 public partial class BoardViewModel : ViewModelBase
 {
-	private readonly NavigationService _navigation;
-	private readonly DataService _dataService;
+	public readonly NavigationService _navigation;
+	public readonly DataService _dataService;
+	[ObservableProperty]
+	public Board _board;
 
 	[ObservableProperty]
-	private Board _board;
+	public ObservableCollection<BoardColumn> _columns = new();
 
 	[ObservableProperty]
-	private ObservableCollection<BoardColumn> _columns = new();
+	public string _newColumnTitle = string.Empty;
 
 	[ObservableProperty]
-	private string _newColumnTitle = string.Empty;
+	public bool _isAddingColumn;
 
 	[ObservableProperty]
-	private bool _isAddingColumn;
+	public bool _isEditingBoardName;
 
 	[ObservableProperty]
-	private bool _isEditingBoardName;
-
-	[ObservableProperty]
-	private string _editBoardName = string.Empty;
+	public string _editBoardName = string.Empty;
 
 	public BoardViewModel(Board board, NavigationService navigation, DataService dataService)
 	{
@@ -403,7 +466,7 @@ public partial class BoardViewModel : ViewModelBase
 		Columns = new ObservableCollection<BoardColumn>(board.Columns.OrderBy(c => c.Order));
 	}
 
-	private void Save()
+	public void Save()
 	{
 		Board.Columns = Columns.ToList();
 		Board.LastModified = DateTime.Now;
@@ -411,17 +474,17 @@ public partial class BoardViewModel : ViewModelBase
 	}
 
 	[RelayCommand]
-	private void ShowAddColumn()
+	public void ShowAddColumn()
 	{
 		IsAddingColumn = true;
 		NewColumnTitle = string.Empty;
 	}
 
 	[RelayCommand]
-	private void CancelAddColumn() => IsAddingColumn = false;
+	public void CancelAddColumn() => IsAddingColumn = false;
 
 	[RelayCommand]
-	private void AddColumn()
+	public void AddColumn()
 	{
 		if (string.IsNullOrWhiteSpace(NewColumnTitle)) return;
 		Columns.Add(new BoardColumn
@@ -436,7 +499,7 @@ public partial class BoardViewModel : ViewModelBase
 	}
 
 	[RelayCommand]
-	private void DeleteColumn(BoardColumn column)
+	public void DeleteColumn(BoardColumn column)
 	{
 		Columns.Remove(column);
 		for (int i = 0; i < Columns.Count; i++) Columns[i].Order = i;
@@ -444,7 +507,7 @@ public partial class BoardViewModel : ViewModelBase
 	}
 
 	[RelayCommand]
-	private void AddNote()
+	public void AddNote()
 	{
 		var firstColumn = Columns.FirstOrDefault();
 		if (firstColumn != null)
@@ -454,7 +517,7 @@ public partial class BoardViewModel : ViewModelBase
 	}
 
 	[RelayCommand]
-	private void AddCard(BoardColumn column)
+	public void AddCard(BoardColumn column)
 	{
 		var card = new NoteCard { Title = "New Note", ColumnId = column.Id };
 		column.Cards.Add(card);
@@ -464,14 +527,14 @@ public partial class BoardViewModel : ViewModelBase
 	}
 
 	[RelayCommand]
-	private void OpenCard(NoteCard card)
+	public void OpenCard(NoteCard card)
 	{
 		var column = Columns.FirstOrDefault(c => c.Cards.Any(n => n.Id == card.Id));
 		if (column != null) _navigation.NavigateToNoteEditor(card, Board, column);
 	}
 
 	[RelayCommand]
-	private void DeleteCard(NoteCard card)
+	public void DeleteCard(NoteCard card)
 	{
 		foreach (var col in Columns)
 		{
@@ -487,12 +550,12 @@ public partial class BoardViewModel : ViewModelBase
 	}
 
 	[RelayCommand]
-	private void MoveCardLeft(NoteCard card) => MoveCard(card, -1);
+	public void MoveCardLeft(NoteCard card) => MoveCard(card, -1);
 
 	[RelayCommand]
-	private void MoveCardRight(NoteCard card) => MoveCard(card, 1);
+	public void MoveCardRight(NoteCard card) => MoveCard(card, 1);
 
-	private void MoveCard(NoteCard card, int direction)
+	public void MoveCard(NoteCard card, int direction)
 	{
 		var sourceCol = Columns.FirstOrDefault(c => c.Cards.Any(n => n.Id == card.Id));
 		if (sourceCol == null) return;
@@ -510,7 +573,7 @@ public partial class BoardViewModel : ViewModelBase
 	}
 
 	[RelayCommand]
-	private void ToggleCardCompleted(NoteCard card)
+	public void ToggleCardCompleted(NoteCard card)
 	{
 		card.IsCompleted = !card.IsCompleted;
 		card.LastModified = DateTime.Now;
@@ -518,20 +581,20 @@ public partial class BoardViewModel : ViewModelBase
 		RefreshColumns();
 	}
 
-	private void RefreshColumns()
+	public void RefreshColumns()
 	{
 		Columns = new ObservableCollection<BoardColumn>(Columns.ToList());
 	}
 
 	[RelayCommand]
-	private void StartEditBoardName()
+	public void StartEditBoardName()
 	{
 		EditBoardName = Board.Name;
 		IsEditingBoardName = true;
 	}
 
 	[RelayCommand]
-	private void SaveBoardName()
+	public void SaveBoardName()
 	{
 		if (!string.IsNullOrWhiteSpace(EditBoardName))
 		{
@@ -542,16 +605,16 @@ public partial class BoardViewModel : ViewModelBase
 	}
 
 	[RelayCommand]
-	private void EditCard(NoteCard card)
+	public void EditCard(NoteCard card)
 	{
 		OpenCard(card);
 	}
 
 	[RelayCommand]
-	private void CancelEditBoardName() => IsEditingBoardName = false;
+	public void CancelEditBoardName() => IsEditingBoardName = false;
 
 	[RelayCommand]
-	private void GoBack() => _navigation.NavigateToWelcome();
+	public void GoBack() => _navigation.NavigateToWelcome();
 
 	public void MoveCardToColumn(NoteCard card, BoardColumn targetColumn)
 	{
@@ -570,79 +633,129 @@ public partial class BoardViewModel : ViewModelBase
 
 --- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\ViewModels\MainWindowViewModel.cs ---
 ----------------------------------------
+using Avalonia;
+using Avalonia.Data.Converters;
+using Avalonia.Styling;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NoteToolAvalonia.Models;
 using NoteToolAvalonia.Services;
+using System;
+using System.Globalization;
 
 namespace NoteToolAvalonia.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
-    private readonly NavigationService _navigation;
-    public DataService DataService { get; }
+	private readonly NavigationService _navigation;
 
-    [ObservableProperty]
-    private ViewModelBase? _currentView;
+	public DataService DataService { get; }
 
-    [ObservableProperty]
-    private string _title = "Notey";
+	[ObservableProperty]
+	private ViewModelBase? _currentView;
 
-    [ObservableProperty]
-    private bool _isSidebarVisible = true;
+	[ObservableProperty]
+	private string _title = "Notey";
 
-    public MainWindowViewModel(NavigationService navigation, DataService dataService)
-    {
-        _navigation = navigation;
-        DataService = dataService;
-    }
+	[ObservableProperty]
+	private bool _isSidebarVisible = true;
 
-    public void NavigateToWelcome()
-    {
-        CurrentView = new WelcomeViewModel(_navigation, DataService);
-        Title = "Notey - Welcome";
-    }
+	[ObservableProperty]
+	private string _currentFontFamily = "Inter";
 
-    public void NavigateToBoard(Board board)
-    {
-        CurrentView = new BoardViewModel(board, _navigation, DataService);
-        Title = $"Notey - {board.Name}";
-    }
+	[ObservableProperty]
+	private int _currentFontSize = 14;
 
-    public void NavigateToNoteEditor(NoteCard card, Board board, BoardColumn column)
-    {
-        CurrentView = new NoteEditorViewModel(card, board, column, _navigation, DataService);
-        Title = $"Notey - Editing: {card.Title}";
-    }
+	public MainWindowViewModel(NavigationService navigation, DataService dataService)
+	{
+		_navigation = navigation;
+		DataService = dataService;
 
-    public void NavigateToSettings()
-    {
-        CurrentView = new SettingsViewModel(DataService);
-        Title = "Notey - Settings";
-    }
+		ApplyAppSettings();
+		NavigateToWelcome();
 
-    [RelayCommand]
-    private void GoHome() => NavigateToWelcome();
+	}
 
-    [RelayCommand]
-    private void GoSettings() => NavigateToSettings();
+	public void ApplyAppSettings()
+	{
+		var settings = DataService.LoadSettings();
 
-    [RelayCommand]
-    private void ToggleSidebar() => IsSidebarVisible = !IsSidebarVisible;
+		CurrentFontFamily = settings.FontFamily;
+		CurrentFontSize = settings.FontSize;
+
+		if (Application.Current != null)
+		{
+			Application.Current.RequestedThemeVariant = settings.Theme switch
+			{
+				"Light" => ThemeVariant.Light,
+				"Dark" => ThemeVariant.Dark,
+				_ => ThemeVariant.Default
+			};
+		}
+	}
+
+	public void NavigateToWelcome()
+	{
+		CurrentView = new WelcomeViewModel(_navigation, DataService);
+		Title = "Notey - Welcome";
+	}
+
+	public void NavigateToBoard(Board board)
+	{
+		CurrentView = new BoardViewModel(board, _navigation, DataService);
+		Title = $"Notey - {board.Name}";
+	}
+
+	public void NavigateToNoteEditor(NoteCard card, Board board, BoardColumn column)
+	{
+		CurrentView = new NoteEditorViewModel(card, board, column, _navigation, DataService);
+		Title = $"Notey - Editing: {card.Title}";
+	}
+
+	public void NavigateToSettings()
+	{
+		CurrentView = new SettingsViewModel(DataService, _navigation);
+		Title = "Notey - Settings";
+	}
+	public class BoolToDoubleConverter : IValueConverter
+	{
+		public double TrueValue { get; set; }
+		public double FalseValue { get; set; }
+
+		public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+		{
+			if (value is bool b)
+				return b ? TrueValue : FalseValue;
+			return FalseValue;
+		}
+
+		public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+		{
+			throw new NotImplementedException();
+		}
+	}
+	[RelayCommand]
+	private void GoHome() => NavigateToWelcome();
+
+	[RelayCommand]
+	private void GoSettings() => NavigateToSettings();
+
+	[RelayCommand]
+	private void ToggleSidebar() => IsSidebarVisible = !IsSidebarVisible;
 }
-
 
 
 
 --- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\ViewModels\NoteEditorViewModel.cs ---
 ----------------------------------------
-using System;
-using System.Linq;
-using System.Collections.ObjectModel;
+using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NoteToolAvalonia.Models;
 using NoteToolAvalonia.Services;
+using System;
+using System.Collections.ObjectModel;
+using System.Linq;
 
 namespace NoteToolAvalonia.ViewModels;
 
@@ -860,83 +973,93 @@ public partial class NoteEditorViewModel : ViewModelBase
 ----------------------------------------
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NoteToolAvalonia.Models;
 using NoteToolAvalonia.Services;
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
 
 namespace NoteToolAvalonia.ViewModels;
 
 public partial class SettingsViewModel : ViewModelBase
 {
-    public DataService DataService { get; }
+	public DataService DataService { get; }
+	private readonly NavigationService _navigation;
 
-    [ObservableProperty] private string _statusMessage = "";
-    [ObservableProperty] private string _selectedTheme;
-    [ObservableProperty] private string _selectedFont;
-    [ObservableProperty] private double _fontSize;
-    [ObservableProperty] private bool _autoSave;
-    [ObservableProperty] private int _autoSaveInterval;
-    [ObservableProperty] private bool _confirmBeforeDelete;
-    [ObservableProperty] private bool _showCompletedNotes;
-    [ObservableProperty] private string _dataFolderPath;
+	[ObservableProperty] private string _statusMessage = "";
+	[ObservableProperty] private string _selectedTheme;
+	[ObservableProperty] private string _selectedFont;
+	[ObservableProperty] private double _fontSize;
+	[ObservableProperty] private bool _autoSave;
+	[ObservableProperty] private int _autoSaveInterval;
+	[ObservableProperty] private bool _confirmBeforeDelete;
+	[ObservableProperty] private bool _showCompletedNotes;
+	[ObservableProperty] private string _dataFolderPath;
 
-    public List<string> Themes { get; } = new() { "Dark", "Light", "System" };
-    public List<string> Fonts { get; } = new() { "Inter", "Roboto", "Segoe UI", "Arial" };
+	public List<string> Themes { get; } = new() { "Dark", "Light", "System" };
+	public List<string> Fonts { get; } = new() { "Inter", "Roboto", "Segoe UI", "Arial" };
 
-    public ICommand SaveSettingsCommand { get; }
-    public ICommand ResetDefaultsCommand { get; }
-    public ICommand GoBackCommand { get; }
+	public SettingsViewModel(DataService dataService, NavigationService navigation)
+	{
+		DataService = dataService ?? throw new ArgumentNullException(nameof(dataService));
+		_navigation = navigation;
+		_dataFolderPath = DataService.DataFolder;
 
-    public SettingsViewModel(DataService? dataService)
-    {
-        DataService = dataService ?? throw new ArgumentNullException(nameof(dataService));
-        _dataFolderPath = DataService.DataFolder;
+		var settings = DataService.LoadSettings();
+		LoadFromModel(settings);
+	}
 
-        // Load existing settings
-        var settings = DataService.LoadSettings();
-        LoadFromModel(settings);
+	private void LoadFromModel(AppSettings settings)
+	{
+		SelectedTheme = settings.Theme;
+		SelectedFont = settings.FontFamily;
+		FontSize = settings.FontSize;
+		AutoSave = settings.AutoSave;
+		AutoSaveInterval = settings.AutoSaveInterval;
+		ConfirmBeforeDelete = settings.ConfirmBeforeDelete;
+		ShowCompletedNotes = settings.ShowCompletedNotes;
+	}
 
-        SaveSettingsCommand = new RelayCommand(SaveSettings);
-        ResetDefaultsCommand = new RelayCommand(ResetToDefaults);
-        GoBackCommand = new RelayCommand(() => { /* Add navigation logic here */ });
-    }
+	[RelayCommand]
+	private void SaveSettings()
+	{
+		var settings = new AppSettings
+		{
+			Theme = SelectedTheme,
+			FontFamily = SelectedFont,
+			FontSize = (int)FontSize,
+			AutoSave = AutoSave,
+			AutoSaveInterval = AutoSaveInterval,
+			ConfirmBeforeDelete = ConfirmBeforeDelete,
+			ShowCompletedNotes = ShowCompletedNotes
+		};
 
-    private void LoadFromModel(AppSettings settings)
-    {
-        SelectedTheme = settings.Theme;
-        SelectedFont = settings.FontFamily;
-        FontSize = settings.FontSize;
-        AutoSave = settings.AutoSave;
-        AutoSaveInterval = settings.AutoSaveInterval;
-        ConfirmBeforeDelete = settings.ConfirmBeforeDelete;
-        ShowCompletedNotes = settings.ShowCompletedNotes;
-    }
+		DataService.SaveSettings(settings);
 
-    private void SaveSettings()
-    {
-        var settings = new AppSettings
-        {
-            Theme = SelectedTheme,
-            FontFamily = SelectedFont,
-            FontSize = (int)FontSize,
-            AutoSave = AutoSave,
-            AutoSaveInterval = AutoSaveInterval,
-            ConfirmBeforeDelete = ConfirmBeforeDelete,
-            ShowCompletedNotes = ShowCompletedNotes
-        };
+		// This finds the MainWindow and tells it to refresh fonts/theme immediately
+		if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+		{
+			if (desktop.MainWindow?.DataContext is MainWindowViewModel mainVm)
+			{
+				mainVm.ApplyAppSettings();
+			}
+		}
 
-        DataService.SaveSettings(settings);
-        StatusMessage = "Settings saved successfully!";
-    }
+		StatusMessage = "Settings saved and applied!";
+	}
 
-    private void ResetToDefaults()
-    {
-        LoadFromModel(new AppSettings());
-        StatusMessage = "Reset to default values.";
-    }
+	[RelayCommand]
+	private void ResetDefaults()
+	{
+		// Default interval is now 2 minutes as requested
+		var defaults = new AppSettings { AutoSaveInterval = 2 };
+		LoadFromModel(defaults);
+		StatusMessage = "Reset to default values.";
+	}
+
+	[RelayCommand]
+	private void GoBack() => _navigation.NavigateToWelcome();
 }
 
 
@@ -949,6 +1072,8 @@ namespace NoteToolAvalonia.ViewModels;
 
 public abstract class ViewModelBase : ObservableObject
 {
+	public string CurrentFontFamily { get; set; } = "Segoe UI";
+	public double CurrentFontSize { get; set; } = 14;
 }
 
 
@@ -1080,185 +1205,123 @@ FOLDER: Views
 
 --- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Views\BoardView.axaml ---
 ----------------------------------------
-<UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="using:NoteToolAvalonia.ViewModels"
-             xmlns:models="using:NoteToolAvalonia.Models"
-             xmlns:conv="using:NoteToolAvalonia.Converters"
-             x:Class="NoteToolAvalonia.Views.BoardView"
-             x:DataType="vm:BoardViewModel">
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:NoteToolAvalonia.ViewModels"
+    xmlns:models="using:NoteToolAvalonia.Models"
+    x:Class="NoteToolAvalonia.Views.BoardView"
+    x:DataType="vm:BoardViewModel">
 
-  <UserControl.Resources>
-    <conv:PriorityColorConverter x:Key="PriorityColorConverter" />
-  </UserControl.Resources>
+  <ScrollViewer HorizontalScrollBarVisibility="Auto">
+    <ItemsControl ItemsSource="{Binding Columns}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <StackPanel Orientation="Horizontal"/>
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
 
-  <Panel>
-    <DockPanel>
-      <Border DockPanel.Dock="Top" Background="#252526" Padding="20,12">
-        <DockPanel>
-          <StackPanel Orientation="Horizontal" Spacing="12" DockPanel.Dock="Left">
-            <Button Classes="ghost" Command="{Binding GoBackCommand}" Content="Back" Foreground="MediumPurple" />
-            <TextBlock Text="{Binding Board.Name}" FontSize="20" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
-          </StackPanel>
-        </DockPanel>
-      </Border>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate>
+          <Border Background="#2D2D30"
+                  Margin="10"
+                  Padding="10"
+                  CornerRadius="8"
+                  DragDrop.AllowDrop="True"
+                  Name="ColumnBorder">
 
-      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Padding="14">
-        <ItemsControl ItemsSource="{Binding Columns}">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <StackPanel Orientation="Horizontal" Spacing="0" />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="models:BoardColumn">
-              <Border Classes="kanban-column"
-                      DragDrop.AllowDrop="True"
-                      DragDrop.DragOver="Column_DragOver"
-                      DragDrop.Drop="Column_Drop"
-                      Width="300" Margin="0,0,10,0">
-                <DockPanel>
-                  <TextBlock DockPanel.Dock="Top" Text="{Binding Title}" Foreground="MediumPurple" FontWeight="Bold" Margin="0,0,0,10"/>
+            <!-- Column Context Menu -->
+            <Border.ContextMenu>
+              <ContextMenu>
+                <MenuItem Header="Add Note"
+                          Command="{Binding $parent[UserControl].DataContext.AddCardCommand}"
+                          CommandParameter="{Binding}" />
+                <MenuItem Header="Delete Column"
+                          Command="{Binding $parent[UserControl].DataContext.DeleteColumnCommand}"
+                          CommandParameter="{Binding}" />
+              </ContextMenu>
+            </Border.ContextMenu>
 
-                  <ItemsControl ItemsSource="{Binding Cards}">
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate x:DataType="models:NoteCard">
-                        <Border Classes="note-card"
-                                Background="#333" CornerRadius="4" Padding="10" Margin="0,0,0,8"
-                                PointerPressed="NoteCard_PointerPressed"
-                                PointerMoved="NoteCard_PointerMoved"
-                                PointerReleased="NoteCard_PointerReleased"
-                                DoubleTapped="NoteCard_DoubleTapped">
-                          <StackPanel>
-                            <TextBlock Text="{Binding Title}" Foreground="White" FontWeight="SemiBold"/>
-                            <TextBlock Text="{Binding Content}" Foreground="#AAA" FontSize="12" MaxLines="2" TextTrimming="CharacterEllipsis"/>
-                          </StackPanel>
-                        </Border>
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
-                </DockPanel>
-              </Border>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </ScrollViewer>
-    </DockPanel>
+            <StackPanel Width="250">
 
-    <Button HorizontalAlignment="Right" 
-            VerticalAlignment="Bottom" 
-            Margin="30" 
-            Width="50" 
-            Height="50" 
-            CornerRadius="25"
-            Background="MediumPurple"
-            Foreground="White"
-            FontSize="24"
-            Content="+"
-            Command="{Binding AddNoteCommand}" />
-  </Panel>
+              <!-- Column Title -->
+              <TextBlock 
+                Text="{Binding Title}"
+                FontWeight="Bold"
+                Foreground="White"
+                Margin="0,0,0,8"/>
+
+              <!-- Notes / Cards -->
+              <ItemsControl ItemsSource="{Binding Cards}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border Background="#3A3A3D"
+                            Margin="5"
+                            Padding="8"
+                            CornerRadius="6"
+                            PointerPressed="NoteCard_PointerPressed"
+                            PointerMoved="NoteCard_PointerMoved"
+                            PointerReleased="NoteCard_PointerReleased"
+                            DoubleTapped="NoteCard_DoubleTapped">
+
+                      <!-- Card Context Menu -->
+                      <Border.ContextMenu>
+                        <ContextMenu>
+
+                          <MenuItem Header="Open"
+                                    Command="{Binding $parent[UserControl].DataContext.OpenCardCommand}"
+                                    CommandParameter="{Binding}" />
+
+                          <MenuItem Header="Delete"
+                                    Command="{Binding $parent[UserControl].DataContext.DeleteCardCommand}"
+                                    CommandParameter="{Binding}" />
+
+                          <Separator/>
+
+                          <MenuItem Header="Toggle Complete"
+                                    Command="{Binding $parent[UserControl].DataContext.ToggleCardCompletedCommand}"
+                                    CommandParameter="{Binding}" />
+
+                          <Separator/>
+
+                          <!-- Priority Submenu -->
+                          <MenuItem Header="Set Priority">
+                            <MenuItem Header="None" Click="Priority_None_Click"/>
+                            <MenuItem Header="Low" Click="Priority_Low_Click"/>
+                            <MenuItem Header="Medium" Click="Priority_Medium_Click"/>
+                            <MenuItem Header="High" Click="Priority_High_Click"/>
+                            <MenuItem Header="Critical" Click="Priority_Critical_Click"/>
+                          </MenuItem>
+
+                        </ContextMenu>
+                      </Border.ContextMenu>
+
+                      <StackPanel>
+                        <TextBlock 
+                          Text="{Binding Title}"
+                          Foreground="#DDD"
+                          TextWrapping="Wrap"
+                          MaxLines="2"
+                          TextTrimming="CharacterEllipsis"/>
+
+                        <TextBlock 
+                          Text="{Binding LastModified, StringFormat='Last modified: {0:MMM dd, yyyy HH:mm}'}"
+                          Foreground="#888"
+                          FontSize="10"
+                          Margin="0,4,0,0"/>
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+  </ScrollViewer>
 </UserControl>
-
-
-
---- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Views\BoardView.axaml.cs ---
-----------------------------------------
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Input;
-using NoteToolAvalonia.Models;
-using NoteToolAvalonia.ViewModels;
-using System;
-
-namespace NoteToolAvalonia.Views;
-
-public partial class BoardView : UserControl
-{
-	private Point _pressPosition;
-	private bool _isPressed;
-	private NoteCard? _pendingDragCard;
-
-	public BoardView()
-	{
-		InitializeComponent();
-	}
-
-	private void NoteCard_PointerPressed(object? sender, PointerPressedEventArgs e)
-	{
-		if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
-
-		if (sender is Control control && control.DataContext is NoteCard card)
-		{
-			_isPressed = true;
-			_pressPosition = e.GetPosition(this);
-			_pendingDragCard = card;
-		}
-	}
-
-	private void NoteCard_PointerMoved(object? sender, PointerEventArgs e)
-	{
-		if (!_isPressed || _pendingDragCard == null) return;
-
-		var currentPos = e.GetPosition(this);
-		var distance = Math.Sqrt(
-			Math.Pow(currentPos.X - _pressPosition.X, 2) +
-			Math.Pow(currentPos.Y - _pressPosition.Y, 2));
-
-		if (distance > 5)
-		{
-			_isPressed = false;
-			var draggedCard = _pendingDragCard;
-			_pendingDragCard = null;
-
-			// ✅ WORKAROUND: Use DataObject + synchronous DoDragDrop
-			var data = new DataObject();
-			data.Set("NoteCard", draggedCard);
-
-			DragDrop.DoDragDrop(e, data, DragDropEffects.Move);
-		}
-	}
-
-	private void NoteCard_PointerReleased(object? sender, PointerReleasedEventArgs e)
-	{
-		_isPressed = false;
-		_pendingDragCard = null;
-	}
-
-	private void NoteCard_DoubleTapped(object? sender, TappedEventArgs e)
-	{
-		if (sender is Control control &&
-			control.DataContext is NoteCard card &&
-			DataContext is BoardViewModel viewModel)
-		{
-			_isPressed = false;
-			_pendingDragCard = null;
-			viewModel.OpenCardCommand.Execute(card);
-			e.Handled = true;
-		}
-	}
-
-	private void Column_DragOver(object? sender, DragEventArgs e)
-	{
-		if (e.Data.Contains("NoteCard"))
-			e.DragEffects = DragDropEffects.Move;
-		else
-			e.DragEffects = DragDropEffects.None;
-	}
-
-	private void Column_Drop(object? sender, DragEventArgs e)
-	{
-		if (!e.Data.Contains("NoteCard") ||
-			e.Data.Get("NoteCard") is not NoteCard draggedCard)
-			return;
-
-		if (sender is Control control &&
-			control.DataContext is BoardColumn targetColumn &&
-			DataContext is BoardViewModel viewModel)
-		{
-			viewModel.MoveCardToColumn(draggedCard, targetColumn);
-		}
-	}
-}
 
 
 
@@ -1274,42 +1337,116 @@ public partial class BoardView : UserControl
         Width="1280" Height="800"
         MinWidth="900" MinHeight="600"
         Background="#1e1e1e"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        FontFamily="{Binding CurrentFontFamily}"
+        FontSize="{Binding CurrentFontSize}">
 
   <DockPanel>
-    <Border Classes="sidebar" DockPanel.Dock="Left" Width="320"
+
+    <!-- Sidebar -->
+    <Border Classes="sidebar" 
+            DockPanel.Dock="Left"
+            Width="260"
             IsVisible="{Binding IsSidebarVisible}">
+
       <DockPanel>
-        <StackPanel DockPanel.Dock="Top" Margin="16,20,16,16">
-          <TextBlock Text="Notey" FontSize="20" FontWeight="Bold" Foreground="White" />
-          <TextBlock Text="The Number Zero Tool made by Gordon Greedman!" FontSize="11" Foreground="#666" Margin="0,2,0,0" />
-          <Separator Margin="0,14,0,0" Background="#333" />
-        </StackPanel>
-        <StackPanel DockPanel.Dock="Top" Spacing="2" Margin="4,0">
+        <!-- Header with Logo -->
+        <Border DockPanel.Dock="Top" 
+                Background="#252526" 
+                Padding="20,24"
+                Margin="0,0,0,8">
+          <StackPanel Spacing="4">
+            <TextBlock Text="Notey" 
+                       FontSize="22" 
+                       FontWeight="Bold"
+                       Foreground="White" 
+                       HorizontalAlignment="Center" />
+            <TextBlock Text="Project Planning App" 
+                       FontSize="11" 
+                       Foreground="#888"
+                       HorizontalAlignment="Center" />
+          </StackPanel>
+        </Border>
+
+        <!-- Navigation Section -->
+        <StackPanel DockPanel.Dock="Top" Margin="8,12,8,0">
+          
+          <TextBlock Text="NAVIGATION" 
+                     FontSize="10" 
+                     Foreground="#666" 
+                     Margin="12,0,0,8"
+                     LetterSpacing="1"/>
+
           <Button Classes="sidebar-btn" Command="{Binding GoHomeCommand}">
-            <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="Home" VerticalAlignment="Center" />
+            <StackPanel Orientation="Horizontal" Spacing="14">
+              <Border Width="24" Height="24" CornerRadius="4" Background="#2a2a2e">
+                <TextBlock Text="⌂" FontSize="16" 
+                           Foreground="#A020F0"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
+              </Border>
+              <TextBlock Text="Home" 
+                         VerticalAlignment="Center"
+                         FontSize="14"/>
             </StackPanel>
           </Button>
+
           <Button Classes="sidebar-btn" Command="{Binding GoSettingsCommand}">
-            <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="Settings" VerticalAlignment="Center" />
+            <StackPanel Orientation="Horizontal" Spacing="14">
+              <Border Width="24" Height="24" CornerRadius="4" Background="#2a2a2e">
+                <TextBlock Text="⚙" FontSize="16" 
+                           Foreground="#A020F0"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
+              </Border>
+              <TextBlock Text="Settings" 
+                         VerticalAlignment="Center"
+                         FontSize="14"/>
             </StackPanel>
           </Button>
+
         </StackPanel>
-        <StackPanel DockPanel.Dock="Bottom" Margin="16,0,16,16">
-          <Separator Background="#333" Margin="0,0,0,12" />
-          <TextBlock Text="v1.0” Avalonia - Net 10.0" FontSize="10" Foreground="#555"
+
+        <!-- Footer -->
+        <StackPanel DockPanel.Dock="Bottom" Margin="16,0,16,20">
+          <Separator Background="#333" Margin="0,0,0,16" />
+          <TextBlock Text="v1.1.0" 
+                     FontSize="10" 
+                     Foreground="#555"
                      HorizontalAlignment="Center" />
+          <TextBlock Text="Avalonia UI" 
+                     FontSize="9" 
+                     Foreground="#444"
+                     HorizontalAlignment="Center"
+                     Margin="0,2,0,0" />
         </StackPanel>
+
         <Panel />
       </DockPanel>
     </Border>
 
-    <Button DockPanel.Dock="Left" Command="{Binding ToggleSidebarCommand}"
-            Content="Hide Menubar" FontSize="15" VerticalAlignment="Top"
-            Margin="4,8,0,0" Classes="ghost" Padding="8,6" />
+    <!-- Hamburger Toggle Button (Always Visible) -->
+    <Border DockPanel.Dock="Left" 
+            Background="#252526"
+            Width="50">
+      <Button Command="{Binding ToggleSidebarCommand}"
+              VerticalAlignment="Top"
+              HorizontalAlignment="Center"
+              Margin="0,16,0,0"
+              Background="Transparent"
+              Padding="10"
+              ToolTip.Tip="Toggle Sidebar"
+              Cursor="Hand">
+        <Button.Styles>
+          <Style Selector="Button:pointerover">
+            <Setter Property="Background" Value="#333337"/>
+          </Style>
+        </Button.Styles>
+        <TextBlock Text="☰" FontSize="20" Foreground="#CCC"/>
+      </Button>
+    </Border>
 
+    <!-- Content Area -->
     <Border Padding="0">
       <ContentControl Content="{Binding CurrentView}">
         <ContentControl.DataTemplates>
@@ -1328,9 +1465,9 @@ public partial class BoardView : UserControl
         </ContentControl.DataTemplates>
       </ContentControl>
     </Border>
+
   </DockPanel>
 </Window>
-
 
 
 
@@ -1353,181 +1490,96 @@ public partial class MainWindow : Window
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:NoteToolAvalonia.ViewModels"
+             xmlns:md="clr-namespace:Markdown.Avalonia;assembly=Markdown.Avalonia"
              x:Class="NoteToolAvalonia.Views.NoteEditorView"
              x:DataType="vm:NoteEditorViewModel">
 
-  <UserControl.Resources>
-    <SolidColorBrush x:Key="AccentBrush">#A370F7</SolidColorBrush>
-    <SolidColorBrush x:Key="EditorBg">#0F0F10</SolidColorBrush>
-    <SolidColorBrush x:Key="PreviewBg">#161618</SolidColorBrush>
-    <SolidColorBrush x:Key="ToolbarBg">#1A1A1C</SolidColorBrush>
-    <SolidColorBrush x:Key="BorderClr">#252526</SolidColorBrush>
-  </UserControl.Resources>
-
-  <UserControl.Styles>
-    <Style Selector="Button.tb">
-      <Setter Property="Background" Value="Transparent"/>
-      <Setter Property="Foreground" Value="#999"/>
-      <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="Padding" Value="10,6"/>
-      <Setter Property="Margin" Value="1,0"/>
-      <Setter Property="CornerRadius" Value="4"/>
-      <Setter Property="FontSize" Value="13"/>
-      <Setter Property="VerticalAlignment" Value="Center"/>
-    </Style>
-    <Style Selector="Button.tb:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#2A2A2C"/>
-      <Setter Property="Foreground" Value="White"/>
-    </Style>
-    <Style Selector="Button.tb:pressed /template/ ContentPresenter">
-      <Setter Property="Background" Value="#333335"/>
-    </Style>
-
-    <Style Selector="Button.ib">
-      <Setter Property="Background" Value="Transparent"/>
-      <Setter Property="Foreground" Value="#999"/>
-      <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="Width" Value="36"/>
-      <Setter Property="Height" Value="36"/>
-      <Setter Property="Padding" Value="0"/>
-      <Setter Property="CornerRadius" Value="4"/>
-      <Setter Property="FontSize" Value="16"/>
-      <Setter Property="HorizontalContentAlignment" Value="Center"/>
-      <Setter Property="VerticalContentAlignment" Value="Center"/>
-    </Style>
-    <Style Selector="Button.ib:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#2A2A2C"/>
-      <Setter Property="Foreground" Value="White"/>
-    </Style>
-  </UserControl.Styles>
-
   <Grid RowDefinitions="Auto,Auto,*,Auto">
-
-    <!-- ===== ROW 0: HEADER BAR ===== -->
-    <Border Grid.Row="0"
-            Background="{StaticResource ToolbarBg}"
-            Height="64" Padding="20,0"
-            BorderBrush="{StaticResource BorderClr}" BorderThickness="0,0,0,1">
+    <!-- Header with Back and Save -->
+    <Border Grid.Row="0" Background="#1A1A1C" Padding="15,8" BorderBrush="#252526" BorderThickness="0,0,0,1">
       <DockPanel>
-
-        <!-- Left side -->
-        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-          <Button Command="{Binding GoBackCommand}" Classes="ib" Content="&#x2190;" FontSize="20"
-                  ToolTip.Tip="Back to board"/>
-          <Border Width="1" Height="24" Background="#333" Margin="4,0"/>
-          <StackPanel Spacing="2">
-            <TextBox Text="{Binding NoteTitle}"
-                     Watermark="Untitled Note"
-                     BorderThickness="0"
-                     Background="Transparent"
-                     FontSize="18" FontWeight="Bold" Foreground="White"
-                     Width="350"
-                     CaretBrush="{StaticResource AccentBrush}"/>
-            <TextBlock Text="{Binding LastModified, StringFormat='Last modified: {0:MMM dd, yyyy HH:mm}'}"
-                       FontSize="11" Foreground="#666"/>
-          </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="5" DockPanel.Dock="Left">
+          <Button Command="{Binding GoBackCommand}" Background="Transparent">
+            <TextBlock Text="Back" Foreground="MediumPurple"/>
+          </Button>
+          <TextBox Text="{Binding NoteTitle}" Width="300" FontWeight="Bold" Background="Transparent" 
+                   BorderThickness="0" VerticalAlignment="Center"/>
         </StackPanel>
 
-        <!-- Right side -->
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-          <Button Command="{Binding TogglePreviewCommand}" Classes="ib"
-                  Content="&#x1F441;" ToolTip.Tip="Toggle preview"/>
-          <Border Width="1" Height="24" Background="#333" Margin="4,0"/>
-          <Button Content="Save" Command="{Binding SaveCommand}"
-                  Background="{StaticResource AccentBrush}" Foreground="White"
-                  CornerRadius="6" Padding="16,8" FontWeight="SemiBold" BorderThickness="0"/>
-          <Button Command="{Binding DeleteCommand}" Classes="ib"
-                  Foreground="#ff6b6b" Content="&#x1F5D1;" ToolTip.Tip="Delete note"/>
-        </StackPanel>
-
+        <Button DockPanel.Dock="Right" Command="{Binding SaveCommand}" Background="MediumPurple" Foreground="White" 
+                Content="Save"/>
       </DockPanel>
     </Border>
 
-    <!-- ===== ROW 1: FORMATTING TOOLBAR ===== -->
-    <Border Grid.Row="1"
-            Background="{StaticResource ToolbarBg}"
-            Padding="16,6"
-            BorderBrush="{StaticResource BorderClr}" BorderThickness="0,0,0,1">
-      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-        <StackPanel Orientation="Horizontal" Spacing="2">
+    <!-- Toolbar -->
+    <Border Grid.Row="1" Background="#1A1A1C" Padding="15,8" BorderBrush="#252526" BorderThickness="0,0,0,1">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <!-- Formatting Buttons -->
+        <Button ToolTip.Tip="Bold (Ctrl+B)" Padding="8,4" Background="#252526" Foreground="#DDD">
+          <TextBlock Text="𝐁" FontSize="14" FontWeight="Bold"/>
+        </Button>
+        <Button ToolTip.Tip="Italic (Ctrl+I)" Padding="8,4" Background="#252526" Foreground="#DDD">
+          <TextBlock Text="𝘐" FontSize="14" FontStyle="Italic"/>
+        </Button>
+        <Button ToolTip.Tip="Strikethrough" Padding="8,4" Background="#252526" Foreground="#DDD">
+          <TextBlock Text="S̶" FontSize="14"/>
+        </Button>
 
-          <!-- Headings -->
-          <Button Classes="tb" Content="H1" Command="{Binding InsertHeading1Command}" ToolTip.Tip="Heading 1"/>
-          <Button Classes="tb" Content="H2" Command="{Binding InsertHeading2Command}" ToolTip.Tip="Heading 2"/>
-          <Button Classes="tb" Content="H3" Command="{Binding InsertHeading3Command}" ToolTip.Tip="Heading 3"/>
+        <!-- Separator -->
+        <Separator Background="#3e3e42" Margin="4,0"/>
 
-          <Border Width="1" Height="22" Background="#333" Margin="6,0"/>
+        <!-- Heading Buttons -->
+        <Button ToolTip.Tip="Heading 1" Padding="8,4" Background="#252526" Foreground="#DDD">
+          <TextBlock Text="H1" FontSize="12" FontWeight="Bold"/>
+        </Button>
+        <Button ToolTip.Tip="Heading 2" Padding="8,4" Background="#252526" Foreground="#DDD">
+          <TextBlock Text="H2" FontSize="12" FontWeight="Bold"/>
+        </Button>
+        <Button ToolTip.Tip="Heading 3" Padding="8,4" Background="#252526" Foreground="#DDD">
+          <TextBlock Text="H3" FontSize="12" FontWeight="Bold"/>
+        </Button>
 
-          <!-- Text Formatting -->
-          <Button Classes="tb" Content="B" FontWeight="Bold"
-                  Command="{Binding InsertBoldCommand}" ToolTip.Tip="Bold"/>
-          <Button Classes="tb" Content="I" FontStyle="Italic"
-                  Command="{Binding InsertItalicCommand}" ToolTip.Tip="Italic"/>
-          <Button Classes="tb" Content="S"
-                  Command="{Binding InsertStrikethroughCommand}" ToolTip.Tip="Strikethrough"/>
-          <Button Classes="tb" Content="&#60;/&#62;"
-                  Command="{Binding InsertCodeCommand}" ToolTip.Tip="Inline code"/>
+        <!-- Separator -->
+        <Separator Background="#3e3e42" Margin="4,0"/>
 
-          <Border Width="1" Height="22" Background="#333" Margin="6,0"/>
+        <!-- List Buttons -->
+        <Button ToolTip.Tip="Bullet List" Padding="8,4" Background="#252526" Foreground="#DDD">
+          <TextBlock Text="•" FontSize="14"/>
+        </Button>
+        <Button ToolTip.Tip="Numbered List" Padding="8,4" Background="#252526" Foreground="#DDD">
+          <TextBlock Text="1." FontSize="12" FontWeight="Bold"/>
+        </Button>
+        <Button ToolTip.Tip="Checklist" Padding="8,4" Background="#252526" Foreground="#DDD">
+          <TextBlock Text="☑" FontSize="14"/>
+        </Button>
 
-          <!-- Lists -->
-          <Button Classes="tb" Content="&#x2022; List"
-                  Command="{Binding InsertBulletListCommand}" ToolTip.Tip="Bullet list"/>
-          <Button Classes="tb" Content="1. List"
-                  Command="{Binding InsertNumberedListCommand}" ToolTip.Tip="Numbered list"/>
-          <Button Classes="tb" Content="&#x2610; Task"
-                  Command="{Binding InsertCheckboxCommand}" ToolTip.Tip="Task list"/>
+        <!-- Separator -->
+        <Separator Background="#3e3e42" Margin="4,0"/>
 
-          <Border Width="1" Height="22" Background="#333" Margin="6,0"/>
+        <!-- Code and Quote -->
+        <Button ToolTip.Tip="Code Block" Padding="8,4" Background="#252526" Foreground="#DDD">
+          <TextBlock Text="&lt;&gt;" FontSize="12" FontWeight="Bold"/>
+        </Button>
+        <Button ToolTip.Tip="Quote" Padding="8,4" Background="#252526" Foreground="#DDD">
+          <TextBlock Text="&gt;" FontSize="14"/>
+        </Button>
 
-          <!-- Insert -->
-          <Button Classes="tb" Content="Link"
-                  Command="{Binding InsertLinkCommand}" ToolTip.Tip="Insert link"/>
-          <Button Classes="tb" Content="Image"
-                  Command="{Binding InsertImageCommand}" ToolTip.Tip="Insert image"/>
-          <Button Classes="tb" Content="Quote"
-                  Command="{Binding InsertQuoteCommand}" ToolTip.Tip="Block quote"/>
-          <Button Classes="tb" Content="Table"
-                  Command="{Binding InsertTableCommand}" ToolTip.Tip="Insert table"/>
-          <Button Classes="tb" Content="Code Block"
-                  Command="{Binding InsertCodeBlockCommand}" ToolTip.Tip="Code block"/>
-          <Button Classes="tb" Content="&#x2014;"
-                  Command="{Binding InsertHorizontalRuleCommand}" ToolTip.Tip="Horizontal rule"/>
+        <!-- Spacer -->
+        <Border Width="1"/>
 
-          <Border Width="1" Height="22" Background="#333" Margin="6,0"/>
-
-          <!-- Priority -->
-          <TextBlock Text="Priority:" VerticalAlignment="Center" Foreground="#666" Margin="6,0,6,0" FontSize="12"/>
-          <ComboBox ItemsSource="{Binding PriorityLevels}"
-                    SelectedItem="{Binding SelectedPriority}"
-                    MinWidth="110"
-                    Background="#2A2A2C"
-                    BorderThickness="1"
-                    BorderBrush="#333"
-                    CornerRadius="4"
-                    FontSize="12"/>
-
-          <Border Width="1" Height="22" Background="#333" Margin="6,0"/>
-
-          <!-- Tags -->
-          <TextBlock Text="Tags:" VerticalAlignment="Center" Foreground="#666" Margin="6,0,6,0" FontSize="12"/>
-          <TextBox Text="{Binding Tags}"
-                   Watermark="tag1, tag2..."
-                   Background="#2A2A2C"
-                   BorderThickness="1"
-                   BorderBrush="#333"
-                   CornerRadius="4"
-                   Padding="8,4"
-                   Foreground="White"
-                   MinWidth="160"
-                   FontSize="12"
-                   CaretBrush="{StaticResource AccentBrush}"/>
-
-        </StackPanel>
-      </ScrollViewer>
+        <!-- Preview Toggle -->
+        <Button Name="PreviewToggleButton" 
+                ToolTip.Tip="Toggle Preview (Ctrl+Shift+P)" 
+                Padding="8,4" 
+                Background="Transparent" 
+                Foreground="#2ecc71"
+                Margin="0,0,0,0">
+          <TextBlock Text="👁️ Preview" FontSize="12"/>
+        </Button>
+      </StackPanel>
     </Border>
 
-    <!-- ===== ROW 2: EDITOR + PREVIEW ===== -->
+    <!-- Editor and Preview Pane -->
     <Grid Grid.Row="2">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*"/>
@@ -1535,92 +1587,53 @@ public partial class MainWindow : Window
         <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
 
-      <!-- Editor Panel -->
-      <Border Grid.Column="0" Background="{StaticResource EditorBg}">
-        <DockPanel>
-          <Border DockPanel.Dock="Top" Background="#1A1A1C" Padding="16,6"
-                  BorderBrush="#252526" BorderThickness="0,0,0,1">
-            <TextBlock Text="EDITOR" FontSize="10" FontWeight="Black" Foreground="#555" LetterSpacing="1.5"/>
-          </Border>
-          <TextBox Text="{Binding NoteContent, Mode=TwoWay}"
-                   AcceptsReturn="True"
-                   TextWrapping="Wrap"
-                   BorderThickness="0"
-                   Background="Transparent"
-                   Foreground="#E0E0E0"
-                   Padding="28,20"
-                   FontSize="15"
-                   FontFamily="Cascadia Code, Consolas, monospace"
-                   CaretBrush="{StaticResource AccentBrush}"/>
-        </DockPanel>
-      </Border>
+      <!-- Editor -->
+      <TextBox Grid.Column="0"
+               Text="{Binding NoteContent}"
+               AcceptsReturn="True"
+               TextWrapping="Wrap"
+               Background="#0F0F10"
+               BorderThickness="0"
+               Padding="30"
+               Name="EditorTextBox"/>
 
-      <!-- Splitter (only visible when preview is on) -->
-      <GridSplitter Grid.Column="1"
-                    Background="#252526"
-                    Width="3"
-                    ResizeDirection="Columns"
-                    IsVisible="{Binding IsPreviewVisible}"/>
+      <!-- Splitter -->
+      <GridSplitter Grid.Column="1" 
+                    Width="4" 
+                    Background="#252526" 
+                    Cursor="SizeWestEast"/>
 
-      <!-- Preview Panel -->
-      <Border Grid.Column="2"
-              Background="{StaticResource PreviewBg}"
-              IsVisible="{Binding IsPreviewVisible}">
-        <DockPanel>
-          <Border DockPanel.Dock="Top" Background="#1A1A1C" Padding="16,6"
-                  BorderBrush="#252526" BorderThickness="0,0,0,1">
-            <TextBlock Text="PREVIEW" FontSize="10" FontWeight="Black" Foreground="#555" LetterSpacing="1.5"/>
-          </Border>
-          <ScrollViewer Padding="28,20">
-            <SelectableTextBlock Text="{Binding NoteContent}"
-                                  TextWrapping="Wrap"
-                                  Foreground="#D4D4D4"
-                                  FontSize="15"
-                                  LineHeight="24"/>
-          </ScrollViewer>
-        </DockPanel>
+      <!-- Preview Pane -->
+      <Border Grid.Column="2" 
+              Background="#0F0F10"
+              BorderThickness="1,0,0,0"
+              BorderBrush="#252526"
+              Padding="30"
+              Name="PreviewPane">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <md:MarkdownScrollViewer Markdown="{Binding NoteContent}" />
+        </ScrollViewer>
       </Border>
     </Grid>
 
-    <!-- ===== ROW 3: STATUS BAR ===== -->
-    <Border Grid.Row="3"
-            Background="{StaticResource ToolbarBg}"
-            Padding="20,6"
-            BorderBrush="{StaticResource BorderClr}" BorderThickness="0,1,0,0">
-      <DockPanel>
-
-        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="20">
-          <TextBlock FontSize="11" Foreground="#555">
-            <Run Text="{Binding WordCount}"/>
-            <Run Text=" words"/>
-          </TextBlock>
-          <TextBlock FontSize="11" Foreground="#555">
-            <Run Text="{Binding CharacterCount}"/>
-            <Run Text=" chars"/>
-          </TextBlock>
-          <TextBlock FontSize="11" Foreground="#555">
-            <Run Text="{Binding LineCount}"/>
-            <Run Text=" lines"/>
-          </TextBlock>
-          <TextBlock FontSize="11" Foreground="#555"
-                     Text="{Binding CreatedAt, StringFormat='Created: {0:MMM dd, yyyy}'}"/>
-        </StackPanel>
-
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="10">
-          <TextBlock Text="{Binding StatusMessage}"
-                     Foreground="#2ecc71"
-                     FontSize="12"
-                     FontWeight="SemiBold"
-                     VerticalAlignment="Center"/>
-          <Border Background="#ff6b6b" CornerRadius="4" Padding="8,2"
-                  IsVisible="{Binding HasUnsavedChanges}">
-            <TextBlock Text="Unsaved" FontSize="10" Foreground="White" FontWeight="Bold"/>
-          </Border>
-        </StackPanel>
-
-      </DockPanel>
+    <!-- Status Bar -->
+    <Border Grid.Row="3" Background="#1A1A1C" Padding="20,6" BorderBrush="#252526" BorderThickness="0,1,0,0">
+      <StackPanel Orientation="Horizontal" Spacing="20">
+        <TextBlock Foreground="#555">
+          <Run Text="{Binding WordCount}"/>
+          <Run Text=" words"/>
+        </TextBlock>
+        <TextBlock Foreground="#555">
+          <Run Text="{Binding CharacterCount}"/>
+          <Run Text=" characters"/>
+        </TextBlock>
+        <TextBlock Foreground="#555">
+          <Run Text="{Binding LineCount}"/>
+          <Run Text=" lines"/>
+        </TextBlock>
+        <TextBlock Text="{Binding StatusMessage}" Foreground="#2ecc71" VerticalAlignment="Center"/>
+      </StackPanel>
     </Border>
-
   </Grid>
 </UserControl>
 
@@ -1628,15 +1641,161 @@ public partial class MainWindow : Window
 
 --- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Views\NoteEditorView.axaml.cs ---
 ----------------------------------------
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.VisualTree;
+using NoteToolAvalonia.ViewModels;
+using System;
+using System.Linq;
 
 namespace NoteToolAvalonia.Views;
 
 public partial class NoteEditorView : UserControl
 {
+	private TextBox? _editorTextBox;
+	private Border? _previewPane;
+	private Button? _previewToggleButton;
+
 	public NoteEditorView()
 	{
 		InitializeComponent();
+	}
+
+	protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+	{
+		base.OnAttachedToVisualTree(e);
+
+		_editorTextBox = this.FindControl<TextBox>("EditorTextBox");
+		_previewPane = this.FindControl<Border>("PreviewPane");
+		_previewToggleButton = this.FindControl<Button>("PreviewToggleButton");
+
+		if (_previewToggleButton != null)
+		{
+			_previewToggleButton.Click += PreviewToggle_Click;
+		}
+
+		// Wire up toolbar buttons - collect all buttons except specific ones
+		foreach (var button in this.GetVisualDescendants().OfType<Button>())
+		{
+			if (button == _previewToggleButton) continue;
+
+			var toolTip = button.GetValue(ToolTip.TipProperty)?.ToString() ?? "";
+			if (string.IsNullOrEmpty(toolTip) || toolTip.Contains("Back") || toolTip.Contains("Save"))
+				continue;
+
+			button.Click += (s, e) => OnToolbarButtonClick((Button)s!);
+		}
+
+		AddHandler(KeyDownEvent, OnKeyDown, handledEventsToo: true);
+		UpdatePreviewVisibility();
+	}
+
+	private void OnKeyDown(object? sender, KeyEventArgs e)
+	{
+		if (DataContext is not NoteEditorViewModel vm) return;
+
+		// Ctrl+B for Bold
+		if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.B)
+		{
+			InsertMarkdown("**", "**");
+			e.Handled = true;
+		}
+		// Ctrl+I for Italic
+		else if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.I)
+		{
+			InsertMarkdown("_", "_");
+			e.Handled = true;
+		}
+		// Ctrl+Shift+P for Preview toggle
+		else if (e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift) && e.Key == Key.P)
+		{
+			vm.IsPreviewVisible = !vm.IsPreviewVisible;
+			UpdatePreviewVisibility();
+			e.Handled = true;
+		}
+	}
+
+	private void OnToolbarButtonClick(Button button)
+	{
+		if (_editorTextBox == null) return;
+
+		var toolTip = button.GetValue(ToolTip.TipProperty)?.ToString() ?? "";
+
+		// Formatting
+		if (toolTip.Contains("Bold"))
+			InsertMarkdown("**", "**");
+		else if (toolTip.Contains("Italic"))
+			InsertMarkdown("_", "_");
+		else if (toolTip.Contains("Strikethrough"))
+			InsertMarkdown("~~", "~~");
+
+		// Headings
+		else if (toolTip.Contains("Heading 1"))
+			InsertMarkdown("# ", "");
+		else if (toolTip.Contains("Heading 2"))
+			InsertMarkdown("## ", "");
+		else if (toolTip.Contains("Heading 3"))
+			InsertMarkdown("### ", "");
+
+		// Lists
+		else if (toolTip.Contains("Bullet List"))
+			InsertMarkdown("- ", "");
+		else if (toolTip.Contains("Numbered List"))
+			InsertMarkdown("1. ", "");
+		else if (toolTip.Contains("Checklist"))
+			InsertMarkdown("- [ ] ", "");
+
+		// Code and Quote
+		else if (toolTip.Contains("Code Block"))
+			InsertMarkdown("```\n", "\n```");
+		else if (toolTip.Contains("Quote"))
+			InsertMarkdown("> ", "");
+
+		_editorTextBox?.Focus();
+	}
+
+	private void InsertMarkdown(string before, string after)
+	{
+		if (_editorTextBox == null) return;
+
+		var cursorPos = _editorTextBox.CaretIndex;
+		var text = _editorTextBox.Text ?? "";
+		var selectedLength = _editorTextBox.SelectedText?.Length ?? 0;
+
+		if (selectedLength > 0)
+		{
+			// Wrap selection
+			var start = _editorTextBox.SelectionStart;
+			var selectedText = _editorTextBox.SelectedText;
+			var newText = text.Substring(0, start) + before + selectedText + after + text.Substring(start + selectedLength);
+			_editorTextBox.Text = newText;
+			_editorTextBox.CaretIndex = start + before.Length + selectedLength;
+		}
+		else
+		{
+			// Insert at cursor
+			var newText = text.Substring(0, cursorPos) + before + after + text.Substring(cursorPos);
+			_editorTextBox.Text = newText;
+			_editorTextBox.CaretIndex = cursorPos + before.Length;
+		}
+	}
+
+	private void PreviewToggle_Click(object? sender, RoutedEventArgs e)
+	{
+		if (DataContext is NoteEditorViewModel vm)
+		{
+			vm.IsPreviewVisible = !vm.IsPreviewVisible;
+			UpdatePreviewVisibility();
+		}
+	}
+
+	private void UpdatePreviewVisibility()
+	{
+		if (DataContext is not NoteEditorViewModel vm || _previewPane == null) return;
+
+		_previewPane.IsVisible = vm.IsPreviewVisible;
 	}
 }
 
@@ -1648,85 +1807,70 @@ public partial class NoteEditorView : UserControl
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:NoteToolAvalonia.ViewModels"
              x:Class="NoteToolAvalonia.Views.SettingsView"
-             x:DataType="vm:SettingsViewModel">
+             x:DataType="vm:SettingsViewModel"
+             Background="#0F0F0F">
+    <DockPanel>
+        <Border DockPanel.Dock="Top" Background="#1A1A1A" Padding="25,20" BorderBrush="#2D2D30" BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal" Spacing="15">
+                <Button Command="{Binding GoBackCommand}" Background="Transparent" BorderThickness="0">
+                    <TextBlock Text="←" FontSize="20" Foreground="#A020F0"/>
+                </Button>
+                <TextBlock Text="Settings" FontSize="24" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
 
-  <UserControl.Styles>
-    <Style Selector="Button.accent">
-      <Setter Property="Background" Value="#800080" />
-      <Setter Property="Foreground" Value="White" />
-    </Style>
-    <Style Selector="Button.accent:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#a000a0" />
-    </Style>
-    <Style Selector="TextBlock.section-title">
-      <Setter Property="Foreground" Value="#bf55ec" />
-      <Setter Property="FontWeight" Value="SemiBold" />
-    </Style>
-  </UserControl.Styles>
+        <Border DockPanel.Dock="Bottom" Background="#1A1A1A" Padding="20" BorderBrush="#2D2D30" BorderThickness="0,1,0,0">
+            <DockPanel>
+                <TextBlock Text="{Binding StatusMessage}" Foreground="#BF40BF" VerticalAlignment="Center" DockPanel.Dock="Left"/>
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                    <Button Content="Reset Defaults" Command="{Binding ResetDefaultsCommand}" Background="Transparent" Foreground="#888"/>
+                    <Button Content="Save Changes" Command="{Binding SaveSettingsCommand}" Background="#A020F0" Foreground="White" Width="150" HorizontalContentAlignment="Center"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
 
-  <ScrollViewer Padding="32,24" Background="#121212">
-    <StackPanel MaxWidth="700" Spacing="20">
+        <ScrollViewer Padding="40,20">
+            <StackPanel Spacing="30" MaxWidth="800" HorizontalAlignment="Left">
+                <StackPanel Spacing="15">
+                    <TextBlock Text="APPEARANCE" Foreground="#A020F0" FontSize="12" FontWeight="SemiBold" LetterSpacing="1"/>
+                    <Border Background="#1A1A1A" CornerRadius="8" Padding="20">
+                        <StackPanel Spacing="20">
+                            <DockPanel>
+                                <TextBlock Text="Theme Mode" Foreground="White" VerticalAlignment="Center"/>
+                                <ComboBox ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme}" Width="150" HorizontalAlignment="Right"/>
+                            </DockPanel>
+                            <Separator Background="#2D2D30"/>
+                            <DockPanel>
+                                <TextBlock Text="Font Family" Foreground="White" VerticalAlignment="Center"/>
+                                <ComboBox ItemsSource="{Binding Fonts}" SelectedItem="{Binding SelectedFont}" Width="150" HorizontalAlignment="Right"/>
+                            </DockPanel>
+                            <Separator Background="#2D2D30"/>
+                            <DockPanel>
+                                <TextBlock Text="Font Size" Foreground="White" VerticalAlignment="Center"/>
+                                <NumericUpDown Value="{Binding FontSize}" Minimum="10" Maximum="24" Width="150" HorizontalAlignment="Right"/>
+                            </DockPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
 
-      <DockPanel>
-        <Button DockPanel.Dock="Left" Classes="ghost" Content="Back" Command="{Binding GoBackCommand}" />
-        <TextBlock Text="Settings" FontSize="28" FontWeight="Bold" Foreground="White"
-                   VerticalAlignment="Center" Margin="16,0,0,0" />
-      </DockPanel>
-
-      <Border Background="#1e1e1e" CornerRadius="8" Padding="20">
-        <StackPanel Spacing="14">
-          <TextBlock Text="Appearance" Classes="section-title" FontSize="18" />
-          
-          <DockPanel>
-            <TextBlock Text="Theme" Width="160" Foreground="#ccc" VerticalAlignment="Center" />
-            <ComboBox ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme, Mode=TwoWay}" MinWidth="200" />
-          </DockPanel>
-
-          <DockPanel>
-            <TextBlock Text="Font" Width="160" Foreground="#ccc" VerticalAlignment="Center" />
-            <ComboBox ItemsSource="{Binding Fonts}" SelectedItem="{Binding SelectedFont, Mode=TwoWay}" MinWidth="200" />
-          </DockPanel>
-
-          <DockPanel>
-            <TextBlock Text="{Binding FontSize, StringFormat='Font Size: {0:F0}'}" Width="160" Foreground="#ccc" VerticalAlignment="Center" />
-            <Slider Value="{Binding FontSize, Mode=TwoWay}" Minimum="10" Maximum="24" TickFrequency="1" IsSnapToTickEnabled="True" MinWidth="200" />
-          </DockPanel>
-        </StackPanel>
-      </Border>
-
-      <Border Background="#1e1e1e" CornerRadius="8" Padding="20">
-        <StackPanel Spacing="14">
-          <TextBlock Text="Behavior" Classes="section-title" FontSize="18" />
-          <CheckBox IsChecked="{Binding AutoSave, Mode=TwoWay}" Content="Auto-save notes" Foreground="#ccc" />
-          <DockPanel IsEnabled="{Binding AutoSave}">
-            <TextBlock Text="{Binding AutoSaveInterval, StringFormat='Auto-save interval: {0}s'}" Width="220" Foreground="#ccc" VerticalAlignment="Center" />
-            <Slider Value="{Binding AutoSaveInterval, Mode=TwoWay}" Minimum="5" Maximum="120" TickFrequency="5" IsSnapToTickEnabled="True" MinWidth="200" />
-          </DockPanel>
-          <CheckBox IsChecked="{Binding ConfirmBeforeDelete, Mode=TwoWay}" Content="Confirm before deleting" Foreground="#ccc" />
-          <CheckBox IsChecked="{Binding ShowCompletedNotes, Mode=TwoWay}" Content="Show completed notes" Foreground="#ccc" />
-        </StackPanel>
-      </Border>
-
-      <Border Background="#1e1e1e" CornerRadius="8" Padding="20">
-        <StackPanel Spacing="10">
-          <TextBlock Text="Data Storage" Classes="section-title" FontSize="18" />
-          <DockPanel>
-            <TextBlock Text="Data folder:" Foreground="#888" Width="100" VerticalAlignment="Center" />
-            <TextBox Text="{Binding DataFolderPath}" IsReadOnly="True" Foreground="#999" Padding="8,6" CornerRadius="4" Background="#2a2a2a" BorderThickness="0"/>
-          </DockPanel>
-        </StackPanel>
-      </Border>
-
-      <StackPanel Orientation="Horizontal" Spacing="12">
-        <Button Classes="accent" Content="Save Settings" Command="{Binding SaveSettingsCommand}" />
-        <Button Classes="ghost" Content="Reset Defaults" Command="{Binding ResetDefaultsCommand}" />
-      </StackPanel>
-
-      <TextBlock Text="{Binding StatusMessage}" FontSize="13" Foreground="#2ecc71"
-                 IsVisible="{Binding StatusMessage.Length}" />
-
-    </StackPanel>
-  </ScrollViewer>
+                <StackPanel Spacing="15">
+                    <TextBlock Text="EDITOR &amp; BEHAVIOR" Foreground="#A020F0" FontSize="12" FontWeight="SemiBold" LetterSpacing="1"/>
+                    <Border Background="#1A1A1A" CornerRadius="8" Padding="20">
+                        <StackPanel Spacing="15">
+                            <ToggleSwitch IsChecked="{Binding AutoSave}" Content="Enable Auto-Save" Foreground="White"/>
+                            <DockPanel IsEnabled="{Binding AutoSave}">
+                                <TextBlock Text="Auto-Save Interval (minutes)" Foreground="White" VerticalAlignment="Center"/>
+                                <NumericUpDown Value="{Binding AutoSaveInterval}" Minimum="1" Maximum="60" Width="150" HorizontalAlignment="Right"/>
+                            </DockPanel>
+                            <Separator Background="#2D2D30"/>
+                            <ToggleSwitch IsChecked="{Binding ConfirmBeforeDelete}" Content="Confirm Before Deletion" Foreground="White"/>
+                            <ToggleSwitch IsChecked="{Binding ShowCompletedNotes}" Content="Show Completed Notes" Foreground="White"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
 </UserControl>
 
 

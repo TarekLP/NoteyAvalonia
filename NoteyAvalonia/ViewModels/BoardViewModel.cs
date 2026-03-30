@@ -11,25 +11,25 @@ namespace NoteToolAvalonia.ViewModels;
 
 public partial class BoardViewModel : ViewModelBase
 {
-	private readonly NavigationService _navigation;
-	private readonly DataService _dataService;
+	public readonly NavigationService _navigation;
+	public readonly DataService _dataService;
 	[ObservableProperty]
-	private Board _board;
+	public Board _board;
 
 	[ObservableProperty]
-	private ObservableCollection<BoardColumn> _columns = new();
+	public ObservableCollection<BoardColumn> _columns = new();
 
 	[ObservableProperty]
-	private string _newColumnTitle = string.Empty;
+	public string _newColumnTitle = string.Empty;
 
 	[ObservableProperty]
-	private bool _isAddingColumn;
+	public bool _isAddingColumn;
 
 	[ObservableProperty]
-	private bool _isEditingBoardName;
+	public bool _isEditingBoardName;
 
 	[ObservableProperty]
-	private string _editBoardName = string.Empty;
+	public string _editBoardName = string.Empty;
 
 	public BoardViewModel(Board board, NavigationService navigation, DataService dataService)
 	{
@@ -39,7 +39,7 @@ public partial class BoardViewModel : ViewModelBase
 		Columns = new ObservableCollection<BoardColumn>(board.Columns.OrderBy(c => c.Order));
 	}
 
-	private void Save()
+	public void Save()
 	{
 		Board.Columns = Columns.ToList();
 		Board.LastModified = DateTime.Now;
@@ -47,17 +47,17 @@ public partial class BoardViewModel : ViewModelBase
 	}
 
 	[RelayCommand]
-	private void ShowAddColumn()
+	public void ShowAddColumn()
 	{
 		IsAddingColumn = true;
 		NewColumnTitle = string.Empty;
 	}
 
 	[RelayCommand]
-	private void CancelAddColumn() => IsAddingColumn = false;
+	public void CancelAddColumn() => IsAddingColumn = false;
 
 	[RelayCommand]
-	private void AddColumn()
+	public void AddColumn()
 	{
 		if (string.IsNullOrWhiteSpace(NewColumnTitle)) return;
 		Columns.Add(new BoardColumn
@@ -72,7 +72,7 @@ public partial class BoardViewModel : ViewModelBase
 	}
 
 	[RelayCommand]
-	private void DeleteColumn(BoardColumn column)
+	public void DeleteColumn(BoardColumn column)
 	{
 		Columns.Remove(column);
 		for (int i = 0; i < Columns.Count; i++) Columns[i].Order = i;
@@ -80,7 +80,7 @@ public partial class BoardViewModel : ViewModelBase
 	}
 
 	[RelayCommand]
-	private void AddNote()
+	public void AddNote()
 	{
 		var firstColumn = Columns.FirstOrDefault();
 		if (firstColumn != null)
@@ -90,7 +90,7 @@ public partial class BoardViewModel : ViewModelBase
 	}
 
 	[RelayCommand]
-	private void AddCard(BoardColumn column)
+	public void AddCard(BoardColumn column)
 	{
 		var card = new NoteCard { Title = "New Note", ColumnId = column.Id };
 		column.Cards.Add(card);
@@ -100,14 +100,14 @@ public partial class BoardViewModel : ViewModelBase
 	}
 
 	[RelayCommand]
-	private void OpenCard(NoteCard card)
+	public void OpenCard(NoteCard card)
 	{
 		var column = Columns.FirstOrDefault(c => c.Cards.Any(n => n.Id == card.Id));
 		if (column != null) _navigation.NavigateToNoteEditor(card, Board, column);
 	}
 
 	[RelayCommand]
-	private void DeleteCard(NoteCard card)
+	public void DeleteCard(NoteCard card)
 	{
 		foreach (var col in Columns)
 		{
@@ -123,12 +123,12 @@ public partial class BoardViewModel : ViewModelBase
 	}
 
 	[RelayCommand]
-	private void MoveCardLeft(NoteCard card) => MoveCard(card, -1);
+	public void MoveCardLeft(NoteCard card) => MoveCard(card, -1);
 
 	[RelayCommand]
-	private void MoveCardRight(NoteCard card) => MoveCard(card, 1);
+	public void MoveCardRight(NoteCard card) => MoveCard(card, 1);
 
-	private void MoveCard(NoteCard card, int direction)
+	public void MoveCard(NoteCard card, int direction)
 	{
 		var sourceCol = Columns.FirstOrDefault(c => c.Cards.Any(n => n.Id == card.Id));
 		if (sourceCol == null) return;
@@ -146,7 +146,7 @@ public partial class BoardViewModel : ViewModelBase
 	}
 
 	[RelayCommand]
-	private void ToggleCardCompleted(NoteCard card)
+	public void ToggleCardCompleted(NoteCard card)
 	{
 		card.IsCompleted = !card.IsCompleted;
 		card.LastModified = DateTime.Now;
@@ -154,20 +154,20 @@ public partial class BoardViewModel : ViewModelBase
 		RefreshColumns();
 	}
 
-	private void RefreshColumns()
+	public void RefreshColumns()
 	{
 		Columns = new ObservableCollection<BoardColumn>(Columns.ToList());
 	}
 
 	[RelayCommand]
-	private void StartEditBoardName()
+	public void StartEditBoardName()
 	{
 		EditBoardName = Board.Name;
 		IsEditingBoardName = true;
 	}
 
 	[RelayCommand]
-	private void SaveBoardName()
+	public void SaveBoardName()
 	{
 		if (!string.IsNullOrWhiteSpace(EditBoardName))
 		{
@@ -178,16 +178,16 @@ public partial class BoardViewModel : ViewModelBase
 	}
 
 	[RelayCommand]
-	private void EditCard(NoteCard card)
+	public void EditCard(NoteCard card)
 	{
 		OpenCard(card);
 	}
 
 	[RelayCommand]
-	private void CancelEditBoardName() => IsEditingBoardName = false;
+	public void CancelEditBoardName() => IsEditingBoardName = false;
 
 	[RelayCommand]
-	private void GoBack() => _navigation.NavigateToWelcome();
+	public void GoBack() => _navigation.NavigateToWelcome();
 
 	public void MoveCardToColumn(NoteCard card, BoardColumn targetColumn)
 	{

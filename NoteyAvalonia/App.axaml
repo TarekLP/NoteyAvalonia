@@ -2,8 +2,32 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="NoteToolAvalonia.App"
              RequestedThemeVariant="Dark">
-  <Application.Styles>
-    <FluentTheme />
+<Application.Styles>
+    <FluentTheme/>
     <StyleInclude Source="avares://NoteyAvalonia/Styles/AppStyles.axaml" />
+
+    <!-- Global Button style -->
+    <Style Selector="Button.accent">
+      <Setter Property="Background" Value="{StaticResource Brush.Accent}" />
+      <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="6,2" />
+      <!-- Optional: override template -->
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Content="{TemplateBinding Content}"
+                              Foreground="{TemplateBinding Foreground}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+
   </Application.Styles>
 </Application>

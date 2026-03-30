@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using NoteToolAvalonia.Models;
 using NoteToolAvalonia.Services;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 
 namespace NoteToolAvalonia.ViewModels;
@@ -35,6 +36,7 @@ public partial class SettingsViewModel : ViewModelBase
 
 		var settings = DataService.LoadSettings();
 		LoadFromModel(settings);
+		ApplyFontSettings();
 	}
 
 	private void LoadFromModel(AppSettings settings)
@@ -46,6 +48,7 @@ public partial class SettingsViewModel : ViewModelBase
 		AutoSaveInterval = settings.AutoSaveInterval;
 		ConfirmBeforeDelete = settings.ConfirmBeforeDelete;
 		ShowCompletedNotes = settings.ShowCompletedNotes;
+		DataFolderPath = DataService.DataFolder;
 	}
 
 	[RelayCommand]
@@ -64,7 +67,6 @@ public partial class SettingsViewModel : ViewModelBase
 
 		DataService.SaveSettings(settings);
 
-		// This finds the MainWindow and tells it to refresh fonts/theme immediately
 		if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
 		{
 			if (desktop.MainWindow?.DataContext is MainWindowViewModel mainVm)
@@ -79,7 +81,6 @@ public partial class SettingsViewModel : ViewModelBase
 	[RelayCommand]
 	private void ResetDefaults()
 	{
-		// Default interval is now 2 minutes as requested
 		var defaults = new AppSettings { AutoSaveInterval = 2 };
 		LoadFromModel(defaults);
 		StatusMessage = "Reset to default values.";
@@ -87,4 +88,41 @@ public partial class SettingsViewModel : ViewModelBase
 
 	[RelayCommand]
 	private void GoBack() => _navigation.NavigateToWelcome();
+
+	[RelayCommand]
+	private async void BrowseFolder()
+	{
+		if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+		{
+			var dialog = new OpenFolderDialog
+			{
+				Title = "Select Data Folder",
+				Directory = DataFolderPath
+			};
+
+			string? result = await dialog.ShowAsync(desktop.MainWindow);
+			if (!string.IsNullOrEmpty(result))
+			{
+				DataFolderPath = result;
+			}
+		}
+	}
+	partial void OnSelectedFontChanged(string value)
+	{
+		ApplyFontSettings();
+	}
+
+	partial void OnFontSizeChanged(double value)
+	{
+		ApplyFontSettings();
+	}
+
+	private void ApplyFontSettings()
+	{
+		if (Application.Current != null)
+		{
+			Application.Current.Resources["AppFontFamily"] = new Avalonia.Media.FontFamily(SelectedFont);
+			Application.Current.Resources["AppFontSize"] = FontSize;
+		}
+	}
 }

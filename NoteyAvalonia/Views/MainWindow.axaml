@@ -7,45 +7,117 @@
         Title="{Binding Title}"
         Width="1280" Height="800"
         MinWidth="900" MinHeight="600"
-        Background="#1e1e1e"
+        Background="{StaticResource Brush.Background}"
         WindowStartupLocation="CenterScreen"
         FontFamily="{Binding CurrentFontFamily}"
         FontSize="{Binding CurrentFontSize}">
 
   <DockPanel>
-    <Border Classes="sidebar" DockPanel.Dock="Left" Width="320"
+
+    <!-- Sidebar -->
+    <Border Classes="sidebar" 
+            DockPanel.Dock="Left"
+            Width="260"
             IsVisible="{Binding IsSidebarVisible}">
+
       <DockPanel>
-        <StackPanel DockPanel.Dock="Top" Margin="16,20,16,16">
-          <TextBlock Text="Notey" FontSize="20" FontWeight="Bold" Foreground="White" />
-          <TextBlock Text="The Number Zero Tool made by Gordon Greedman!" FontSize="11" Foreground="#666" Margin="0,2,0,0" />
-          <Separator Margin="0,14,0,0" Background="#333" />
-        </StackPanel>
-        <StackPanel DockPanel.Dock="Top" Spacing="2" Margin="4,0">
+        <!-- Header with Logo -->
+        <Border DockPanel.Dock="Top" 
+                Background="{StaticResource Brush.Surface}"
+                Padding="20,24"
+                Margin="0,0,0,8">
+          <StackPanel Spacing="4">
+            <TextBlock Text="Notey" 
+                       FontSize="22" 
+                       FontWeight="Bold"
+                       Foreground="{StaticResource Brush.TextPrimary}"
+                       HorizontalAlignment="Center" />
+            <TextBlock Text="Project Planning App" 
+                       FontSize="11" 
+                       Foreground="#888"
+                       HorizontalAlignment="Center" />
+          </StackPanel>
+        </Border>
+
+        <!-- Navigation Section -->
+        <StackPanel DockPanel.Dock="Top" Margin="8,12,8,0">
+          
+          <TextBlock Text="NAVIGATION" 
+                     FontSize="10" 
+                     Foreground="#666" 
+                     Margin="12,0,0,8"
+                     LetterSpacing="1"/>
+
           <Button Classes="sidebar-btn" Command="{Binding GoHomeCommand}">
-            <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="Home" VerticalAlignment="Center" />
+            <StackPanel Orientation="Horizontal" Spacing="14">
+              <Border Width="24" Height="24" CornerRadius="4" Background="#2a2a2e">
+                <TextBlock Text="⌂" FontSize="16" 
+                           Foreground="{StaticResource Brush.Accent}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
+              </Border>
+              <TextBlock Text="Home" 
+                         VerticalAlignment="Center"
+                         FontSize="14"/>
             </StackPanel>
           </Button>
+
           <Button Classes="sidebar-btn" Command="{Binding GoSettingsCommand}">
-            <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="Settings" VerticalAlignment="Center" />
+            <StackPanel Orientation="Horizontal" Spacing="14">
+              <Border Width="24" Height="24" CornerRadius="4" Background="#2a2a2e">
+                <TextBlock Text="⚙" FontSize="16" 
+                           Foreground="{StaticResource Brush.Accent}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
+              </Border>
+              <TextBlock Text="Settings" 
+                         VerticalAlignment="Center"
+                         FontSize="14"/>
             </StackPanel>
           </Button>
+
         </StackPanel>
-        <StackPanel DockPanel.Dock="Bottom" Margin="16,0,16,16">
-          <Separator Background="#333" Margin="0,0,0,12" />
-          <TextBlock Text="v1.0 Avalonia - Net 10.0" FontSize="10" Foreground="#555"
+
+        <!-- Footer -->
+        <StackPanel DockPanel.Dock="Bottom" Margin="16,0,16,20">
+          <Separator Background="{StaticResource Brush.Border}" Margin="0,0,0,16" />
+          <TextBlock Text="v1.1.0" 
+                     FontSize="10" 
+                     Foreground="#555"
                      HorizontalAlignment="Center" />
+          <TextBlock Text="Avalonia UI" 
+                     FontSize="9" 
+                     Foreground="#444"
+                     HorizontalAlignment="Center"
+                     Margin="0,2,0,0" />
         </StackPanel>
+
         <Panel />
       </DockPanel>
     </Border>
 
-    <Button DockPanel.Dock="Left" Command="{Binding ToggleSidebarCommand}"
-            Content="Hide Menubar" FontSize="15" VerticalAlignment="Top"
-            Margin="4,8,0,0" Classes="ghost" Padding="8,6" />
+    <!-- Hamburger Toggle Button (Always Visible) -->
+    <Border DockPanel.Dock="Left" 
+            Background="#252526"
+            Width="50">
+      <Button Command="{Binding ToggleSidebarCommand}"
+              VerticalAlignment="Top"
+              HorizontalAlignment="Center"
+              Margin="0,16,0,0"
+              Background="Transparent"
+              Padding="10"
+              ToolTip.Tip="Toggle Sidebar"
+              Cursor="Hand">
+        <Button.Styles>
+          <Style Selector="Button:pointerover">
+            <Setter Property="Background" Value="#333337"/>
+          </Style>
+        </Button.Styles>
+        <TextBlock Text="☰" FontSize="20" Foreground="#CCC"/>
+      </Button>
+    </Border>
 
+    <!-- Content Area -->
     <Border Padding="0">
       <ContentControl Content="{Binding CurrentView}">
         <ContentControl.DataTemplates>
@@ -64,5 +136,6 @@
         </ContentControl.DataTemplates>
       </ContentControl>
     </Border>
+
   </DockPanel>
 </Window>

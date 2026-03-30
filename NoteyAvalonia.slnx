@@ -1,3 +1,12 @@
 <Solution>
-  <Project Path="NoteyAvalonia/NoteyAvalonia.csproj" />
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="NoteyAvalonia/NoteyAvalonia.csproj">
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="Debug|x86" Project="x64" />
+    <Platform Solution="Release|x86" Project="x86" />
+  </Project>
 </Solution>

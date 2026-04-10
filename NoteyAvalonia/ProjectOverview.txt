@@ -1,4 +1,4 @@
-﻿PROJECT OVERVIEW - 03/30/2026 10:35:31
+﻿PROJECT OVERVIEW - 04/10/2026 08:43:10
 
 ========================================
 FOLDER: Models
@@ -252,7 +252,7 @@ FOLDER: Styles
     <Color x:Key="Color.TextPrimary">#ffffff</Color>
     <Color x:Key="Color.TextSecondary">#888888</Color>
 
-    <!-- Accent (Purple System) -->
+    <!-- Accent -->
     <Color x:Key="Color.Accent">#6a1b9a</Color>
     <Color x:Key="Color.AccentHover">#7b1fa2</Color>
 
@@ -272,8 +272,8 @@ FOLDER: Styles
        BASE TYPOGRAPHY
        ========================= -->
   <Style Selector="TemplatedControl">
-    <Setter Property="FontFamily" Value="Inter"/>
-    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
+    <Setter Property="FontSize" Value="{DynamicResource AppFontSize}"/>
   </Style>
 
   <!-- =========================
@@ -344,30 +344,33 @@ FOLDER: Styles
     <Setter Property="Background" Value="{StaticResource Brush.Surface}"/>
   </Style>
 
-  <!-- Accent Button -->
-  <Style Selector="Button.accent">
-    <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
-    <Setter Property="Foreground" Value="White"/>
-    <Setter Property="CornerRadius" Value="6"/>
-    <Setter Property="Padding" Value="16,10"/>
-    <Setter Property="FontWeight" Value="SemiBold"/>
-  </Style>
+    <!-- Accent Button -->
+    <Style Selector="Button.accent">
+      <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Padding" Value="20,12"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
 
-  <Style Selector="Button.accent:pointerover /template/ ContentPresenter">
-    <Setter Property="Background" Value="{StaticResource Brush.AccentHover}"/>
-  </Style>
+    <Style Selector="Button.accent:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Brush.AccentHover}"/>
+    </Style>
 
-  <!-- Danger Button -->
-  <Style Selector="Button.danger">
-    <Setter Property="Background" Value="#c0392b"/>
-    <Setter Property="Foreground" Value="White"/>
-    <Setter Property="CornerRadius" Value="6"/>
-    <Setter Property="Padding" Value="16,10"/>
-  </Style>
+    <!-- Danger Button -->
+    <Style Selector="Button.danger">
+      <Setter Property="Background" Value="#c0392b"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Padding" Value="20,12"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
 
-  <Style Selector="Button.danger:pointerover /template/ ContentPresenter">
-    <Setter Property="Background" Value="#e74c3c"/>
-  </Style>
+    <Style Selector="Button.danger:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#e74c3c"/>
+    </Style>
 
   <!-- Ghost Button -->
   <Style Selector="Button.ghost">
@@ -380,6 +383,22 @@ FOLDER: Styles
   <Style Selector="Button.ghost:pointerover /template/ ContentPresenter">
     <Setter Property="Background" Value="{StaticResource Brush.SurfaceAlt}"/>
   </Style>
+
+  <!-- =========================
+       CHECKBOX (purple accent)
+       ========================= -->
+  <Style Selector="CheckBox">
+    <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}"/>
+  </Style>
+
+  <Style Selector="CheckBox:checked /template/ Path">
+    <Setter Property="Fill" Value="{StaticResource Brush.Accent}"/>
+  </Style>
+
+  <Style Selector="CheckBox:indeterminate /template/ Path">
+    <Setter Property="Fill" Value="{StaticResource Brush.Accent}"/>
+  </Style>
+
 
   <!-- =========================
        TEXT
@@ -978,6 +997,7 @@ using CommunityToolkit.Mvvm.Input;
 using NoteToolAvalonia.Models;
 using NoteToolAvalonia.Services;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 
 namespace NoteToolAvalonia.ViewModels;
@@ -1008,6 +1028,7 @@ public partial class SettingsViewModel : ViewModelBase
 
 		var settings = DataService.LoadSettings();
 		LoadFromModel(settings);
+		ApplyFontSettings();
 	}
 
 	private void LoadFromModel(AppSettings settings)
@@ -1019,6 +1040,7 @@ public partial class SettingsViewModel : ViewModelBase
 		AutoSaveInterval = settings.AutoSaveInterval;
 		ConfirmBeforeDelete = settings.ConfirmBeforeDelete;
 		ShowCompletedNotes = settings.ShowCompletedNotes;
+		DataFolderPath = DataService.DataFolder;
 	}
 
 	[RelayCommand]
@@ -1037,7 +1059,6 @@ public partial class SettingsViewModel : ViewModelBase
 
 		DataService.SaveSettings(settings);
 
-		// This finds the MainWindow and tells it to refresh fonts/theme immediately
 		if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
 		{
 			if (desktop.MainWindow?.DataContext is MainWindowViewModel mainVm)
@@ -1052,7 +1073,6 @@ public partial class SettingsViewModel : ViewModelBase
 	[RelayCommand]
 	private void ResetDefaults()
 	{
-		// Default interval is now 2 minutes as requested
 		var defaults = new AppSettings { AutoSaveInterval = 2 };
 		LoadFromModel(defaults);
 		StatusMessage = "Reset to default values.";
@@ -1060,6 +1080,43 @@ public partial class SettingsViewModel : ViewModelBase
 
 	[RelayCommand]
 	private void GoBack() => _navigation.NavigateToWelcome();
+
+	[RelayCommand]
+	private async void BrowseFolder()
+	{
+		if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+		{
+			var dialog = new OpenFolderDialog
+			{
+				Title = "Select Data Folder",
+				Directory = DataFolderPath
+			};
+
+			string? result = await dialog.ShowAsync(desktop.MainWindow);
+			if (!string.IsNullOrEmpty(result))
+			{
+				DataFolderPath = result;
+			}
+		}
+	}
+	partial void OnSelectedFontChanged(string value)
+	{
+		ApplyFontSettings();
+	}
+
+	partial void OnFontSizeChanged(double value)
+	{
+		ApplyFontSettings();
+	}
+
+	private void ApplyFontSettings()
+	{
+		if (Application.Current != null)
+		{
+			Application.Current.Resources["AppFontFamily"] = new Avalonia.Media.FontFamily(SelectedFont);
+			Application.Current.Resources["AppFontSize"] = FontSize;
+		}
+	}
 }
 
 
@@ -1213,7 +1270,8 @@ FOLDER: Views
     x:Class="NoteToolAvalonia.Views.BoardView"
     x:DataType="vm:BoardViewModel">
 
-  <ScrollViewer HorizontalScrollBarVisibility="Auto">
+  <ScrollViewer HorizontalScrollBarVisibility="Auto" Padding="16">
+
     <ItemsControl ItemsSource="{Binding Columns}">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate>
@@ -1223,7 +1281,7 @@ FOLDER: Views
 
       <ItemsControl.ItemTemplate>
         <DataTemplate>
-          <Border Background="#2D2D30"
+          <Border Classes="card"
                   Margin="10"
                   Padding="10"
                   CornerRadius="8"
@@ -1245,20 +1303,17 @@ FOLDER: Views
             <StackPanel Width="250">
 
               <!-- Column Title -->
-              <TextBlock 
-                Text="{Binding Title}"
-                FontWeight="Bold"
-                Foreground="White"
-                Margin="0,0,0,8"/>
+              <TextBlock Text="{Binding Title}" 
+                         FontWeight="SemiBold"
+                         Foreground="{StaticResource Brush.TextPrimary}"
+                         Classes="subtitle"
+                         Margin="0,0,0,8"/>
 
               <!-- Notes / Cards -->
               <ItemsControl ItemsSource="{Binding Cards}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
-                    <Border Background="#3A3A3D"
-                            Margin="5"
-                            Padding="8"
-                            CornerRadius="6"
+                    <Border Classes="note-card"
                             PointerPressed="NoteCard_PointerPressed"
                             PointerMoved="NoteCard_PointerMoved"
                             PointerReleased="NoteCard_PointerReleased"
@@ -1267,23 +1322,17 @@ FOLDER: Views
                       <!-- Card Context Menu -->
                       <Border.ContextMenu>
                         <ContextMenu>
-
                           <MenuItem Header="Open"
                                     Command="{Binding $parent[UserControl].DataContext.OpenCardCommand}"
                                     CommandParameter="{Binding}" />
-
                           <MenuItem Header="Delete"
                                     Command="{Binding $parent[UserControl].DataContext.DeleteCardCommand}"
                                     CommandParameter="{Binding}" />
-
                           <Separator/>
-
                           <MenuItem Header="Toggle Complete"
                                     Command="{Binding $parent[UserControl].DataContext.ToggleCardCompletedCommand}"
                                     CommandParameter="{Binding}" />
-
                           <Separator/>
-
                           <!-- Priority Submenu -->
                           <MenuItem Header="Set Priority">
                             <MenuItem Header="None" Click="Priority_None_Click"/>
@@ -1292,23 +1341,20 @@ FOLDER: Views
                             <MenuItem Header="High" Click="Priority_High_Click"/>
                             <MenuItem Header="Critical" Click="Priority_Critical_Click"/>
                           </MenuItem>
-
                         </ContextMenu>
                       </Border.ContextMenu>
 
                       <StackPanel>
-                        <TextBlock 
-                          Text="{Binding Title}"
-                          Foreground="#DDD"
-                          TextWrapping="Wrap"
-                          MaxLines="2"
-                          TextTrimming="CharacterEllipsis"/>
-
-                        <TextBlock 
-                          Text="{Binding LastModified, StringFormat='Last modified: {0:MMM dd, yyyy HH:mm}'}"
-                          Foreground="#888"
-                          FontSize="10"
-                          Margin="0,4,0,0"/>
+                        <TextBlock Text="{Binding Title}"
+                                   Foreground="{StaticResource Brush.TextPrimary}"
+                                   TextWrapping="Wrap"
+                                   MaxLines="2"
+                                   TextTrimming="CharacterEllipsis"
+                                   FontSize="14"/>
+                        <TextBlock Text="{Binding LastModified, StringFormat='Last modified: {0:MMM dd, yyyy HH:mm}'}"
+                                   Foreground="{StaticResource Brush.TextSecondary}"
+                                   FontSize="10"
+                                   Margin="0,4,0,0"/>
                       </StackPanel>
                     </Border>
                   </DataTemplate>
@@ -1325,6 +1371,227 @@ FOLDER: Views
 
 
 
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Views\BoardView.axaml.cs ---
+----------------------------------------
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Media;
+using Avalonia.Interactivity;
+using NoteToolAvalonia.Models;
+using NoteToolAvalonia.ViewModels;
+using System;
+using System.Linq;
+
+namespace NoteToolAvalonia.Views;
+
+public partial class BoardView : UserControl
+{
+	private Point _pressPosition;
+	private bool _isPressed;
+	private NoteCard? _pendingDragCard;
+	private Popup? _dragVisualPopup;
+	private Border? _dragVisualContent;
+
+	public BoardView()
+	{
+		InitializeComponent();
+		AddHandler(DragDrop.DragOverEvent, Column_DragOver, handledEventsToo: true);
+		AddHandler(DragDrop.DropEvent, Column_Drop, handledEventsToo: true);
+	}
+
+	// ========================
+	// CONTEXT MENU HELPERS
+	// ========================
+
+	private NoteCard? GetCardFromSender(object? sender)
+	{
+		if (sender is MenuItem menuItem)
+		{
+			return menuItem.DataContext as NoteCard;
+		}
+		return null;
+	}
+
+	private void SetPriority(object? sender, NotePriority priority)
+	{
+		if (GetCardFromSender(sender) is not NoteCard card) return;
+		if (DataContext is not BoardViewModel vm) return;
+
+		card.Priority = priority;
+		card.LastModified = DateTime.Now;
+		vm.Save(); // Use the Save method from the ViewModel
+	}
+
+	private void Priority_None_Click(object? sender, RoutedEventArgs e)
+		=> SetPriority(sender, NotePriority.None);
+
+	private void Priority_Low_Click(object? sender, RoutedEventArgs e)
+		=> SetPriority(sender, NotePriority.Low);
+
+	private void Priority_Medium_Click(object? sender, RoutedEventArgs e)
+		=> SetPriority(sender, NotePriority.Medium);
+
+	private void Priority_High_Click(object? sender, RoutedEventArgs e)
+		=> SetPriority(sender, NotePriority.High);
+
+	private void Priority_Critical_Click(object? sender, RoutedEventArgs e)
+		=> SetPriority(sender, NotePriority.Critical);
+
+	// ========================
+	// DRAG & DROP LOGIC (unchanged)
+	// ========================
+
+	private void NoteCard_PointerPressed(object? sender, PointerPressedEventArgs e)
+	{
+		if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+
+		if (sender is Control control && control.DataContext is NoteCard card)
+		{
+			_isPressed = true;
+			_pressPosition = e.GetPosition(this);
+			_pendingDragCard = card;
+		}
+	}
+
+	private void NoteCard_PointerMoved(object? sender, PointerEventArgs e)
+	{
+		if (!_isPressed || _pendingDragCard == null) return;
+
+		var currentPos = e.GetPosition(this);
+		var distance = Math.Sqrt(
+			Math.Pow(currentPos.X - _pressPosition.X, 2) +
+			Math.Pow(currentPos.Y - _pressPosition.Y, 2));
+
+		if (distance > 5)
+		{
+			_isPressed = false;
+			var draggedCard = _pendingDragCard;
+			_pendingDragCard = null;
+
+			ShowDragVisual(draggedCard, e);
+
+			var data = new DataObject();
+			data.Set("NoteCard", draggedCard);
+
+			DragDrop.DoDragDrop(e, data, DragDropEffects.Move);
+			HideDragVisual();
+		}
+	}
+
+	private void NoteCard_PointerReleased(object? sender, PointerReleasedEventArgs e)
+	{
+		_isPressed = false;
+		_pendingDragCard = null;
+		HideDragVisual();
+	}
+
+	private void NoteCard_DoubleTapped(object? sender, TappedEventArgs e)
+	{
+		if (sender is Control control &&
+			control.DataContext is NoteCard card &&
+			DataContext is BoardViewModel viewModel)
+		{
+			viewModel.OpenCardCommand.Execute(card);
+			e.Handled = true;
+		}
+	}
+
+	private void ShowDragVisual(NoteCard card, PointerEventArgs e)
+	{
+		_dragVisualContent = new Border
+		{
+			Background = new SolidColorBrush(Color.Parse("#3A3A3D")),
+			CornerRadius = new CornerRadius(6),
+			Padding = new Thickness(8),
+			Width = 240,
+			MaxHeight = 100,
+			Opacity = 0.9,
+			Child = new StackPanel
+			{
+				Children =
+				{
+					new TextBlock
+					{
+						Text = card.Title,
+						Foreground = new SolidColorBrush(Color.Parse("#DDD")),
+						TextWrapping = TextWrapping.Wrap,
+						MaxLines = 2,
+						TextTrimming = TextTrimming.CharacterEllipsis
+					}
+				}
+			}
+		};
+
+		_dragVisualPopup = new Popup
+		{
+			Child = _dragVisualContent,
+			IsOpen = true,
+			Placement = PlacementMode.AnchorAndGravity
+		};
+
+		UpdateDragVisualPosition(e);
+		PointerMoved += DragVisual_PointerMoved;
+	}
+
+	private void HideDragVisual()
+	{
+		PointerMoved -= DragVisual_PointerMoved;
+		if (_dragVisualPopup != null)
+		{
+			_dragVisualPopup.IsOpen = false;
+			_dragVisualPopup = null;
+		}
+		_dragVisualContent = null;
+	}
+
+	private void DragVisual_PointerMoved(object? sender, PointerEventArgs e)
+	{
+		if (_dragVisualPopup != null)
+			UpdateDragVisualPosition(e);
+	}
+
+	private void UpdateDragVisualPosition(PointerEventArgs e)
+	{
+		if (_dragVisualPopup != null)
+		{
+			var screenPos = this.PointToScreen(e.GetPosition(this));
+			_dragVisualPopup.HorizontalOffset = screenPos.X + 10;
+			_dragVisualPopup.VerticalOffset = screenPos.Y + 10;
+		}
+	}
+
+	private void Column_DragOver(object? sender, DragEventArgs e)
+	{
+		e.DragEffects = e.Data.Contains("NoteCard")
+			? DragDropEffects.Move
+			: DragDropEffects.None;
+	}
+
+	private void Column_Drop(object? sender, DragEventArgs e)
+	{
+		if (!e.Data.Contains("NoteCard") ||
+			e.Data.Get("NoteCard") is not NoteCard draggedCard)
+			return;
+
+		var current = e.Source as Control;
+		while (current != null)
+		{
+			if (current is Border border && border.Name == "ColumnBorder" &&
+				border.DataContext is BoardColumn targetColumn &&
+				DataContext is BoardViewModel vm)
+			{
+				vm.MoveCardToColumn(draggedCard, targetColumn);
+				return;
+			}
+			current = current.Parent as Control;
+		}
+	}
+}
+
+
+
 --- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Views\MainWindow.axaml ---
 ----------------------------------------
 <Window xmlns="https://github.com/avaloniaui"
@@ -1336,7 +1603,7 @@ FOLDER: Views
         Title="{Binding Title}"
         Width="1280" Height="800"
         MinWidth="900" MinHeight="600"
-        Background="#1e1e1e"
+        Background="{StaticResource Brush.Background}"
         WindowStartupLocation="CenterScreen"
         FontFamily="{Binding CurrentFontFamily}"
         FontSize="{Binding CurrentFontSize}">
@@ -1352,14 +1619,14 @@ FOLDER: Views
       <DockPanel>
         <!-- Header with Logo -->
         <Border DockPanel.Dock="Top" 
-                Background="#252526" 
+                Background="{StaticResource Brush.Surface}"
                 Padding="20,24"
                 Margin="0,0,0,8">
           <StackPanel Spacing="4">
             <TextBlock Text="Notey" 
                        FontSize="22" 
                        FontWeight="Bold"
-                       Foreground="White" 
+                       Foreground="{StaticResource Brush.TextPrimary}"
                        HorizontalAlignment="Center" />
             <TextBlock Text="Project Planning App" 
                        FontSize="11" 
@@ -1381,7 +1648,7 @@ FOLDER: Views
             <StackPanel Orientation="Horizontal" Spacing="14">
               <Border Width="24" Height="24" CornerRadius="4" Background="#2a2a2e">
                 <TextBlock Text="⌂" FontSize="16" 
-                           Foreground="#A020F0"
+                           Foreground="{StaticResource Brush.Accent}"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"/>
               </Border>
@@ -1395,7 +1662,7 @@ FOLDER: Views
             <StackPanel Orientation="Horizontal" Spacing="14">
               <Border Width="24" Height="24" CornerRadius="4" Background="#2a2a2e">
                 <TextBlock Text="⚙" FontSize="16" 
-                           Foreground="#A020F0"
+                           Foreground="{StaticResource Brush.Accent}"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"/>
               </Border>
@@ -1409,7 +1676,7 @@ FOLDER: Views
 
         <!-- Footer -->
         <StackPanel DockPanel.Dock="Bottom" Margin="16,0,16,20">
-          <Separator Background="#333" Margin="0,0,0,16" />
+          <Separator Background="{StaticResource Brush.Border}" Margin="0,0,0,16" />
           <TextBlock Text="v1.1.0" 
                      FontSize="10" 
                      Foreground="#555"
@@ -1496,7 +1763,7 @@ public partial class MainWindow : Window
 
   <Grid RowDefinitions="Auto,Auto,*,Auto">
     <!-- Header with Back and Save -->
-    <Border Grid.Row="0" Background="#1A1A1C" Padding="15,8" BorderBrush="#252526" BorderThickness="0,0,0,1">
+    <Border Grid.Row="0" Background="{StaticResource Brush.Background}" Padding="15,8" BorderBrush="#252526" BorderThickness="0,0,0,1">
       <DockPanel>
         <StackPanel Orientation="Horizontal" Spacing="5" DockPanel.Dock="Left">
           <Button Command="{Binding GoBackCommand}" Background="Transparent">
@@ -1506,22 +1773,22 @@ public partial class MainWindow : Window
                    BorderThickness="0" VerticalAlignment="Center"/>
         </StackPanel>
 
-        <Button DockPanel.Dock="Right" Command="{Binding SaveCommand}" Background="MediumPurple" Foreground="White" 
+        <Button DockPanel.Dock="Right" Command="{Binding SaveCommand}" Background="{StaticResource Brush.Accent}" Foreground="White" 
                 Content="Save"/>
       </DockPanel>
     </Border>
 
     <!-- Toolbar -->
-    <Border Grid.Row="1" Background="#1A1A1C" Padding="15,8" BorderBrush="#252526" BorderThickness="0,0,0,1">
+    <Border Grid.Row="1" Background="{StaticResource Brush.Background}" Padding="15,8" BorderBrush="#252526" BorderThickness="0,0,0,1">
       <StackPanel Orientation="Horizontal" Spacing="8">
         <!-- Formatting Buttons -->
-        <Button ToolTip.Tip="Bold (Ctrl+B)" Padding="8,4" Background="#252526" Foreground="#DDD">
+        <Button ToolTip.Tip="Bold (Ctrl+B)" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
           <TextBlock Text="𝐁" FontSize="14" FontWeight="Bold"/>
         </Button>
-        <Button ToolTip.Tip="Italic (Ctrl+I)" Padding="8,4" Background="#252526" Foreground="#DDD">
+        <Button ToolTip.Tip="Italic (Ctrl+I)" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
           <TextBlock Text="𝘐" FontSize="14" FontStyle="Italic"/>
         </Button>
-        <Button ToolTip.Tip="Strikethrough" Padding="8,4" Background="#252526" Foreground="#DDD">
+        <Button ToolTip.Tip="Strikethrough" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
           <TextBlock Text="S̶" FontSize="14"/>
         </Button>
 
@@ -1529,13 +1796,13 @@ public partial class MainWindow : Window
         <Separator Background="#3e3e42" Margin="4,0"/>
 
         <!-- Heading Buttons -->
-        <Button ToolTip.Tip="Heading 1" Padding="8,4" Background="#252526" Foreground="#DDD">
+        <Button ToolTip.Tip="Heading 1" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
           <TextBlock Text="H1" FontSize="12" FontWeight="Bold"/>
         </Button>
-        <Button ToolTip.Tip="Heading 2" Padding="8,4" Background="#252526" Foreground="#DDD">
+        <Button ToolTip.Tip="Heading 2" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
           <TextBlock Text="H2" FontSize="12" FontWeight="Bold"/>
         </Button>
-        <Button ToolTip.Tip="Heading 3" Padding="8,4" Background="#252526" Foreground="#DDD">
+        <Button ToolTip.Tip="Heading 3" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
           <TextBlock Text="H3" FontSize="12" FontWeight="Bold"/>
         </Button>
 
@@ -1543,13 +1810,13 @@ public partial class MainWindow : Window
         <Separator Background="#3e3e42" Margin="4,0"/>
 
         <!-- List Buttons -->
-        <Button ToolTip.Tip="Bullet List" Padding="8,4" Background="#252526" Foreground="#DDD">
+        <Button ToolTip.Tip="Bullet List" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
           <TextBlock Text="•" FontSize="14"/>
         </Button>
-        <Button ToolTip.Tip="Numbered List" Padding="8,4" Background="#252526" Foreground="#DDD">
+        <Button ToolTip.Tip="Numbered List" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
           <TextBlock Text="1." FontSize="12" FontWeight="Bold"/>
         </Button>
-        <Button ToolTip.Tip="Checklist" Padding="8,4" Background="#252526" Foreground="#DDD">
+        <Button ToolTip.Tip="Checklist" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
           <TextBlock Text="☑" FontSize="14"/>
         </Button>
 
@@ -1557,10 +1824,10 @@ public partial class MainWindow : Window
         <Separator Background="#3e3e42" Margin="4,0"/>
 
         <!-- Code and Quote -->
-        <Button ToolTip.Tip="Code Block" Padding="8,4" Background="#252526" Foreground="#DDD">
+        <Button ToolTip.Tip="Code Block" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
           <TextBlock Text="&lt;&gt;" FontSize="12" FontWeight="Bold"/>
         </Button>
-        <Button ToolTip.Tip="Quote" Padding="8,4" Background="#252526" Foreground="#DDD">
+        <Button ToolTip.Tip="Quote" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
           <TextBlock Text="&gt;" FontSize="14"/>
         </Button>
 
@@ -1572,7 +1839,7 @@ public partial class MainWindow : Window
                 ToolTip.Tip="Toggle Preview (Ctrl+Shift+P)" 
                 Padding="8,4" 
                 Background="Transparent" 
-                Foreground="#2ecc71"
+                Foreground="{StaticResource Brush.Accent}"
                 Margin="0,0,0,0">
           <TextBlock Text="👁️ Preview" FontSize="12"/>
         </Button>
@@ -1592,7 +1859,7 @@ public partial class MainWindow : Window
                Text="{Binding NoteContent}"
                AcceptsReturn="True"
                TextWrapping="Wrap"
-               Background="#0F0F10"
+               Background="{StaticResource Brush.Background}"
                BorderThickness="0"
                Padding="30"
                Name="EditorTextBox"/>
@@ -1600,12 +1867,12 @@ public partial class MainWindow : Window
       <!-- Splitter -->
       <GridSplitter Grid.Column="1" 
                     Width="4" 
-                    Background="#252526" 
+                    Background="{StaticResource Brush.Surface}" 
                     Cursor="SizeWestEast"/>
 
       <!-- Preview Pane -->
       <Border Grid.Column="2" 
-              Background="#0F0F10"
+              Background="{StaticResource Brush.Background}"
               BorderThickness="1,0,0,0"
               BorderBrush="#252526"
               Padding="30"
@@ -1617,7 +1884,7 @@ public partial class MainWindow : Window
     </Grid>
 
     <!-- Status Bar -->
-    <Border Grid.Row="3" Background="#1A1A1C" Padding="20,6" BorderBrush="#252526" BorderThickness="0,1,0,0">
+    <Border Grid.Row="3" Background="{StaticResource Brush.Background}" Padding="20,6" BorderBrush="#252526" BorderThickness="0,1,0,0">
       <StackPanel Orientation="Horizontal" Spacing="20">
         <TextBlock Foreground="#555">
           <Run Text="{Binding WordCount}"/>
@@ -1631,7 +1898,7 @@ public partial class MainWindow : Window
           <Run Text="{Binding LineCount}"/>
           <Run Text=" lines"/>
         </TextBlock>
-        <TextBlock Text="{Binding StatusMessage}" Foreground="#2ecc71" VerticalAlignment="Center"/>
+        <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource Brush.Accent}" VerticalAlignment="Center"/>
       </StackPanel>
     </Border>
   </Grid>
@@ -1807,70 +2074,98 @@ public partial class NoteEditorView : UserControl
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:NoteToolAvalonia.ViewModels"
              x:Class="NoteToolAvalonia.Views.SettingsView"
-             x:DataType="vm:SettingsViewModel"
-             Background="#0F0F0F">
-    <DockPanel>
-        <Border DockPanel.Dock="Top" Background="#1A1A1A" Padding="25,20" BorderBrush="#2D2D30" BorderThickness="0,0,0,1">
-            <StackPanel Orientation="Horizontal" Spacing="15">
-                <Button Command="{Binding GoBackCommand}" Background="Transparent" BorderThickness="0">
-                    <TextBlock Text="←" FontSize="20" Foreground="#A020F0"/>
-                </Button>
-                <TextBlock Text="Settings" FontSize="24" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
-            </StackPanel>
-        </Border>
+             x:DataType="vm:SettingsViewModel">
 
-        <Border DockPanel.Dock="Bottom" Background="#1A1A1A" Padding="20" BorderBrush="#2D2D30" BorderThickness="0,1,0,0">
-            <DockPanel>
-                <TextBlock Text="{Binding StatusMessage}" Foreground="#BF40BF" VerticalAlignment="Center" DockPanel.Dock="Left"/>
-                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
-                    <Button Content="Reset Defaults" Command="{Binding ResetDefaultsCommand}" Background="Transparent" Foreground="#888"/>
-                    <Button Content="Save Changes" Command="{Binding SaveSettingsCommand}" Background="#A020F0" Foreground="White" Width="150" HorizontalContentAlignment="Center"/>
-                </StackPanel>
-            </DockPanel>
-        </Border>
+  <ScrollViewer>
+    <StackPanel Margin="20" Spacing="20">
 
-        <ScrollViewer Padding="40,20">
-            <StackPanel Spacing="30" MaxWidth="800" HorizontalAlignment="Left">
-                <StackPanel Spacing="15">
-                    <TextBlock Text="APPEARANCE" Foreground="#A020F0" FontSize="12" FontWeight="SemiBold" LetterSpacing="1"/>
-                    <Border Background="#1A1A1A" CornerRadius="8" Padding="20">
-                        <StackPanel Spacing="20">
-                            <DockPanel>
-                                <TextBlock Text="Theme Mode" Foreground="White" VerticalAlignment="Center"/>
-                                <ComboBox ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme}" Width="150" HorizontalAlignment="Right"/>
-                            </DockPanel>
-                            <Separator Background="#2D2D30"/>
-                            <DockPanel>
-                                <TextBlock Text="Font Family" Foreground="White" VerticalAlignment="Center"/>
-                                <ComboBox ItemsSource="{Binding Fonts}" SelectedItem="{Binding SelectedFont}" Width="150" HorizontalAlignment="Right"/>
-                            </DockPanel>
-                            <Separator Background="#2D2D30"/>
-                            <DockPanel>
-                                <TextBlock Text="Font Size" Foreground="White" VerticalAlignment="Center"/>
-                                <NumericUpDown Value="{Binding FontSize}" Minimum="10" Maximum="24" Width="150" HorizontalAlignment="Right"/>
-                            </DockPanel>
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
+      <!-- Title -->
+      <TextBlock Text="Settings" 
+                 FontSize="22" 
+                 FontWeight="Bold" 
+                 Foreground="{StaticResource Brush.TextPrimary}"/>
 
-                <StackPanel Spacing="15">
-                    <TextBlock Text="EDITOR &amp; BEHAVIOR" Foreground="#A020F0" FontSize="12" FontWeight="SemiBold" LetterSpacing="1"/>
-                    <Border Background="#1A1A1A" CornerRadius="8" Padding="20">
-                        <StackPanel Spacing="15">
-                            <ToggleSwitch IsChecked="{Binding AutoSave}" Content="Enable Auto-Save" Foreground="White"/>
-                            <DockPanel IsEnabled="{Binding AutoSave}">
-                                <TextBlock Text="Auto-Save Interval (minutes)" Foreground="White" VerticalAlignment="Center"/>
-                                <NumericUpDown Value="{Binding AutoSaveInterval}" Minimum="1" Maximum="60" Width="150" HorizontalAlignment="Right"/>
-                            </DockPanel>
-                            <Separator Background="#2D2D30"/>
-                            <ToggleSwitch IsChecked="{Binding ConfirmBeforeDelete}" Content="Confirm Before Deletion" Foreground="White"/>
-                            <ToggleSwitch IsChecked="{Binding ShowCompletedNotes}" Content="Show Completed Notes" Foreground="White"/>
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-            </StackPanel>
-        </ScrollViewer>
-    </DockPanel>
+
+      <!-- Font Selection -->
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <TextBlock Text="Font:" 
+                   VerticalAlignment="Center" 
+                   Width="120"
+                   Foreground="{StaticResource Brush.TextPrimary}"/>
+        <ComboBox ItemsSource="{Binding Fonts}" 
+                  SelectedItem="{Binding SelectedFont, Mode=TwoWay}" 
+                  Width="280"
+                  MaxWidth="280"/>
+      </StackPanel>
+
+      <!-- Font Size -->
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <TextBlock Text="Font Size:" 
+                   VerticalAlignment="Center" 
+                   Width="120"
+                   Foreground="{StaticResource Brush.TextPrimary}"/>
+        <NumericUpDown Minimum="8" Maximum="32" 
+                   Value="{Binding FontSize, Mode=TwoWay}" 
+                   Width="120"/>
+      </StackPanel>
+
+      <!-- AutoSave -->
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <CheckBox Content="Auto Save" 
+                  IsChecked="{Binding AutoSave}" 
+                  Foreground="{StaticResource Brush.TextPrimary}" 
+                  VerticalAlignment="Center"/>
+        <TextBlock Text="Interval (min):" 
+                   VerticalAlignment="Center" 
+                   Foreground="{StaticResource Brush.TextPrimary}"/>
+        <NumericUpDown Minimum="1" Maximum="60" 
+                Value="{Binding AutoSaveInterval}" 
+                Width="120"
+                IsReadOnly="False"/>
+      </StackPanel>
+
+      <!-- Confirm Delete -->
+      <CheckBox Content="Confirm Before Delete" 
+                IsChecked="{Binding ConfirmBeforeDelete}" 
+                Foreground="{StaticResource Brush.TextPrimary}"/>
+
+      <!-- Show Completed Notes -->
+      <CheckBox Content="Show Completed Notes" 
+                IsChecked="{Binding ShowCompletedNotes}" 
+                Foreground="{StaticResource Brush.TextPrimary}"/>
+
+      <!-- Folder Path (readonly) -->
+    <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock Text="Data Folder:" 
+                    Width="120"
+                    VerticalAlignment="Center"
+                    Foreground="{StaticResource Brush.TextPrimary}"/>
+  
+        <TextBox Text="{Binding DataFolderPath}" 
+                Width="300" 
+                IsReadOnly="True" 
+                Foreground="{StaticResource Brush.TextSecondary}"/>
+  
+        <Button Content="Browse..." 
+                Command="{Binding BrowseFolderCommand}" 
+                Margin="8,0,0,0"/>
+    </StackPanel>
+
+      <!-- Buttons -->
+      <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,20,0,0">
+        <Button Classes="accent" Command="{Binding SaveSettingsCommand}" MinWidth="80">Save</Button>
+        <Button Classes="danger" Command="{Binding ResetDefaultsCommand}" MinWidth="120">Reset Defaults</Button>
+        <Button Classes="ghost" Command="{Binding GoBackCommand}" MinWidth="80">Cancel</Button>
+      </StackPanel>
+
+      <!-- Status Message -->
+      <TextBlock Text="{Binding StatusMessage}" 
+                 Foreground="{StaticResource Brush.Accent}" 
+                 FontWeight="SemiBold"
+                 Margin="0,12,0,0"/>
+      
+    </StackPanel>
+  </ScrollViewer>
 </UserControl>
 
 
@@ -1900,97 +2195,113 @@ public partial class SettingsView : UserControl
   <ScrollViewer Padding="32,24">
     <StackPanel MaxWidth="900" Spacing="20">
 
+      <!-- Welcome Title -->
       <StackPanel Margin="0,10,0,20">
-        <TextBlock Text="Welcome to Notey" FontSize="32" FontWeight="Bold" Foreground="White" />
+        <TextBlock Text="Welcome to Notey" Classes="section-title"/>
         <TextBlock Text="Organize and plan your next Project using this tool!"
-                   FontSize="15" Foreground="#888" Margin="0,6,0,0" />
+                   Classes="subtitle" Margin="0,6,0,0"/>
       </StackPanel>
 
+      <!-- Stats Cards -->
       <WrapPanel Margin="0,0,0,8">
-        <Border Classes="card" Margin="0,0,12,0" MinWidth="150">
+        <Border Classes="card" MinWidth="150">
           <StackPanel>
-            <TextBlock Text="Boards" Foreground="#888" FontSize="12" />
-            <TextBlock Text="{Binding TotalBoards}" FontSize="28" FontWeight="Bold" Foreground="White" />
+            <TextBlock Text="Boards" Classes="subtitle"/>
+            <TextBlock Text="{Binding TotalBoards}" FontSize="28" FontWeight="Bold" Foreground="{StaticResource Brush.TextPrimary}" />
           </StackPanel>
         </Border>
         <Border Classes="card" MinWidth="150">
           <StackPanel>
-            <TextBlock Text="Notes" Foreground="#888" FontSize="12" />
-            <TextBlock Text="{Binding TotalNotes}" FontSize="28" FontWeight="Bold" Foreground="White" />
+            <TextBlock Text="Notes" Classes="subtitle"/>
+            <TextBlock Text="{Binding TotalNotes}" FontSize="28" FontWeight="Bold" Foreground="{StaticResource Brush.TextPrimary}" />
           </StackPanel>
         </Border>
       </WrapPanel>
 
+      <!-- Search + New Board -->
       <DockPanel>
         <Button DockPanel.Dock="Right" Classes="accent" Command="{Binding ShowCreateBoardCommand}" Margin="12,0,0,0">
           <StackPanel Orientation="Horizontal" Spacing="6">
-            <TextBlock Text="New Board" VerticalAlignment="Center" />
+            <TextBlock Text="New Board" VerticalAlignment="Center"/>
           </StackPanel>
         </Button>
         <TextBox Watermark="Search boards..." Text="{Binding SearchText, Mode=TwoWay}"
-                 CornerRadius="6" Padding="12,10" />
+                 CornerRadius="6" Padding="12,10"/>
       </DockPanel>
 
-      <Border Classes="card" IsVisible="{Binding IsCreatingBoard}" Background="#2a2a2e">
+      <!-- Create Board Panel -->
+      <Border Classes="card" IsVisible="{Binding IsCreatingBoard}">
         <StackPanel Spacing="12">
-          <TextBlock Text="Create New Board" FontSize="16" FontWeight="SemiBold" Foreground="White" />
-          <TextBox Watermark="Board name..." Text="{Binding NewBoardName, Mode=TwoWay}" Padding="12,10" CornerRadius="6" />
+          <TextBlock Text="Create New Board" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Brush.TextPrimary}" />
+          <TextBox Watermark="Board name..." Text="{Binding NewBoardName, Mode=TwoWay}" Padding="12,10" CornerRadius="6"/>
           <StackPanel Orientation="Horizontal" Spacing="8">
-            <Button Classes="accent" Command="{Binding CreateBoardCommand}" Content="Create" />
-            <Button Classes="ghost" Command="{Binding CancelCreateBoardCommand}" Content="Cancel" />
+            <Button Classes="accent" Command="{Binding CreateBoardCommand}" Content="Create"/>
+            <Button Classes="ghost" Command="{Binding CancelCreateBoardCommand}" Content="Cancel"/>
           </StackPanel>
         </StackPanel>
       </Border>
 
-      <TextBlock Text="Your Boards" Classes="section-title" Margin="0,8,0,0" />
+      <!-- Boards Section -->
+      <TextBlock Text="Your Boards" Classes="section-title" Margin="0,8,0,0"/>
 
-      <Border Classes="card" IsVisible="{Binding !FilteredBoards.Count}"
-              HorizontalAlignment="Center" Margin="0,30">
+      <!-- No Boards Placeholder -->
+      <Border Classes="card" IsVisible="{Binding !FilteredBoards.Count}" HorizontalAlignment="Center" Margin="0,30">
         <StackPanel HorizontalAlignment="Center" Spacing="8">
-          <TextBlock Text="No boards yet" FontSize="18" Foreground="#888" HorizontalAlignment="Center" />
-          <TextBlock Text="Click 'New Board' to get started!" FontSize="13" Foreground="#666" HorizontalAlignment="Center" />
+          <TextBlock Text="No boards yet" FontSize="18" Foreground="{StaticResource Brush.TextSecondary}" HorizontalAlignment="Center"/>
+          <TextBlock Text="Click 'New Board' to get started!" FontSize="13" Foreground="{StaticResource Brush.TextSecondary}" HorizontalAlignment="Center"/>
         </StackPanel>
       </Border>
 
-      <ItemsControl ItemsSource="{Binding FilteredBoards}">
-        <ItemsControl.ItemTemplate>
-          <DataTemplate>
+      <!-- Boards List -->
+<ItemsControl ItemsSource="{Binding FilteredBoards}">
+    <ItemsControl.ItemTemplate>
+        <DataTemplate>
             <Border Classes="card" Margin="0,0,0,4" Cursor="Hand">
-              <DockPanel>
-                <Button DockPanel.Dock="Right" Classes="ghost" VerticalAlignment="Top"
-                        Command="{Binding $parent[ItemsControl].((vm:WelcomeViewModel)DataContext).DeleteBoardCommand}"
-                        CommandParameter="{Binding}" Content="" FontSize="16" ToolTip.Tip="Delete board" />
-                <Border Background="Transparent" Cursor="Hand" Tapped="BoardCard_Tapped">
-                  <StackPanel Spacing="6">
-                    <TextBlock Text="{Binding Name}" FontSize="18" FontWeight="SemiBold" Foreground="White" />
-                    <StackPanel Orientation="Horizontal" Spacing="16">
-                      <TextBlock Foreground="#888" FontSize="12">
-                        <TextBlock.Text>
-                          <MultiBinding StringFormat=" {0} columns">
-                            <Binding Path="Columns.Count" />
-                          </MultiBinding>
-                        </TextBlock.Text>
-                      </TextBlock>
-                      <TextBlock Foreground="#888" FontSize="12">
-                        <TextBlock.Text>
-                          <MultiBinding StringFormat="{} {0:MMM dd, yyyy}">
-                            <Binding Path="LastModified" />
-                          </MultiBinding>
-                        </TextBlock.Text>
-                      </TextBlock>
-                    </StackPanel>
-                  </StackPanel>
-                </Border>
-              </DockPanel>
+                <DockPanel>
+                    <Button DockPanel.Dock="Right"
+                            Classes="ghost"
+                            Command="{Binding $parent[ItemsControl].((vm:WelcomeViewModel)DataContext).DeleteBoardCommand}"
+                            CommandParameter="{Binding}"
+                            FontSize="16"
+                            ToolTip.Tip="Delete board"
+                            Content="🗑">
+                        <Button.Styles>
+                            <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                <Setter Property="Foreground" Value="{StaticResource Brush.Accent}"/>
+                            </Style>
+                        </Button.Styles>
+                    </Button>
+
+                    <Border Background="Transparent" Cursor="Hand" Tapped="BoardCard_Tapped">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{Binding Name}" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource Brush.TextPrimary}"/>
+                            <StackPanel Orientation="Horizontal" Spacing="16">
+                                <TextBlock Foreground="{StaticResource Brush.TextSecondary}" FontSize="12">
+                                    <TextBlock.Text>
+                                        <MultiBinding StringFormat=" {0} columns">
+                                            <Binding Path="Columns.Count"/>
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
+                                <TextBlock Foreground="{StaticResource Brush.TextSecondary}" FontSize="12">
+                                    <TextBlock.Text>
+                                        <MultiBinding StringFormat="{} {0:MMM dd, yyyy}">
+                                            <Binding Path="LastModified"/>
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </DockPanel>
             </Border>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+        </DataTemplate>
+    </ItemsControl.ItemTemplate>
+</ItemsControl>
 
     </StackPanel>
   </ScrollViewer>
 </UserControl>
-
 
 
 

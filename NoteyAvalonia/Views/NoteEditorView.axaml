@@ -1,112 +1,221 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:NoteToolAvalonia.ViewModels"
              xmlns:md="clr-namespace:Markdown.Avalonia;assembly=Markdown.Avalonia"
+             xmlns:local="using:NoteToolAvalonia.Views"
              x:Class="NoteToolAvalonia.Views.NoteEditorView"
              x:DataType="vm:NoteEditorViewModel">
 
-  <Grid RowDefinitions="Auto,Auto,*,Auto">
+  <UserControl.Resources>
+    <local:BoolToTextWrappingConverter x:Key="BoolToTextWrappingConverter"/>
+  </UserControl.Resources>
+
+  <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
     <!-- Header with Back and Save -->
     <Border Grid.Row="0" Background="{StaticResource Brush.Background}" Padding="15,8" BorderBrush="#252526" BorderThickness="0,0,0,1">
       <DockPanel>
         <StackPanel Orientation="Horizontal" Spacing="5" DockPanel.Dock="Left">
           <Button Command="{Binding GoBackCommand}" Background="Transparent">
-            <TextBlock Text="Back" Foreground="MediumPurple"/>
+            <TextBlock Text="← Back" Foreground="MediumPurple"/>
           </Button>
           <TextBox Text="{Binding NoteTitle}" Width="300" FontWeight="Bold" Background="Transparent" 
                    BorderThickness="0" VerticalAlignment="Center"/>
         </StackPanel>
 
         <Button DockPanel.Dock="Right" Command="{Binding SaveCommand}" Background="{StaticResource Brush.Accent}" Foreground="White" 
-                Content="Save"/>
+                Content="Save" Margin="0,0,8,0"/>
       </DockPanel>
     </Border>
 
-    <!-- Toolbar -->
+    <!-- Main Toolbar - Row 1 -->
     <Border Grid.Row="1" Background="{StaticResource Brush.Background}" Padding="15,8" BorderBrush="#252526" BorderThickness="0,0,0,1">
-      <StackPanel Orientation="Horizontal" Spacing="8">
-        <!-- Formatting Buttons -->
-        <Button ToolTip.Tip="Bold (Ctrl+B)" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-          <TextBlock Text="𝐁" FontSize="14" FontWeight="Bold"/>
-        </Button>
-        <Button ToolTip.Tip="Italic (Ctrl+I)" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-          <TextBlock Text="𝘐" FontSize="14" FontStyle="Italic"/>
-        </Button>
-        <Button ToolTip.Tip="Strikethrough" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-          <TextBlock Text="S̶" FontSize="14"/>
-        </Button>
+      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <!-- Undo/Redo -->
+          <Button ToolTip.Tip="Undo (Ctrl+Z)" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}"
+                  Command="{Binding UndoCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+              <TextBlock Text="↶" FontSize="14"/>
+              <TextBlock Text="{Binding UndoCount}" FontSize="11"/>
+            </StackPanel>
+          </Button>
+          <Button ToolTip.Tip="Redo (Ctrl+Y)" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}"
+                  Command="{Binding RedoCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+              <TextBlock Text="↷" FontSize="14"/>
+              <TextBlock Text="{Binding RedoCount}" FontSize="11"/>
+            </StackPanel>
+          </Button>
 
-        <!-- Separator -->
-        <Separator Background="#3e3e42" Margin="4,0"/>
+          <!-- Separator -->
+          <Separator Background="#3e3e42" Margin="4,0"/>
 
-        <!-- Heading Buttons -->
-        <Button ToolTip.Tip="Heading 1" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-          <TextBlock Text="H1" FontSize="12" FontWeight="Bold"/>
-        </Button>
-        <Button ToolTip.Tip="Heading 2" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-          <TextBlock Text="H2" FontSize="12" FontWeight="Bold"/>
-        </Button>
-        <Button ToolTip.Tip="Heading 3" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-          <TextBlock Text="H3" FontSize="12" FontWeight="Bold"/>
-        </Button>
+          <!-- Formatting Buttons (wrap selection) -->
+          <Button Name="BoldButton" ToolTip.Tip="Bold: Ctrl+B or select text then click" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
+            <TextBlock Text="𝐁" FontSize="14" FontWeight="Bold"/>
+          </Button>
+          <Button Name="ItalicButton" ToolTip.Tip="Italic: Ctrl+I or select text then click" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
+            <TextBlock Text="𝘐" FontSize="14" FontStyle="Italic"/>
+          </Button>
+          <Button Name="StrikethroughButton" ToolTip.Tip="Strikethrough: select text then click" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
+            <TextBlock Text="S̶" FontSize="14"/>
+          </Button>
+          <Button Name="CodeButton" ToolTip.Tip="Inline code: select text then click" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
+            <TextBlock Text="`" FontSize="14" FontWeight="Bold"/>
+          </Button>
 
-        <!-- Separator -->
-        <Separator Background="#3e3e42" Margin="4,0"/>
+          <!-- Separator -->
+          <Separator Background="#3e3e42" Margin="4,0"/>
 
-        <!-- List Buttons -->
-        <Button ToolTip.Tip="Bullet List" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-          <TextBlock Text="•" FontSize="14"/>
-        </Button>
-        <Button ToolTip.Tip="Numbered List" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-          <TextBlock Text="1." FontSize="12" FontWeight="Bold"/>
-        </Button>
-        <Button ToolTip.Tip="Checklist" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-          <TextBlock Text="☑" FontSize="14"/>
-        </Button>
+          <!-- Heading Buttons -->
+          <Button Name="Heading1Button" ToolTip.Tip="Heading 1" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
+            <TextBlock Text="H1" FontSize="12" FontWeight="Bold"/>
+          </Button>
+          <Button Name="Heading2Button" ToolTip.Tip="Heading 2" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
+            <TextBlock Text="H2" FontSize="12" FontWeight="Bold"/>
+          </Button>
+          <Button Name="Heading3Button" ToolTip.Tip="Heading 3" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
+            <TextBlock Text="H3" FontSize="12" FontWeight="Bold"/>
+          </Button>
 
-        <!-- Separator -->
-        <Separator Background="#3e3e42" Margin="4,0"/>
+          <!-- Separator -->
+          <Separator Background="#3e3e42" Margin="4,0"/>
 
-        <!-- Code and Quote -->
-        <Button ToolTip.Tip="Code Block" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-          <TextBlock Text="&lt;&gt;" FontSize="12" FontWeight="Bold"/>
-        </Button>
-        <Button ToolTip.Tip="Quote" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-          <TextBlock Text="&gt;" FontSize="14"/>
-        </Button>
+          <!-- List Buttons -->
+          <Button Name="BulletListButton" ToolTip.Tip="Bullet List" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
+            <TextBlock Text="•" FontSize="14"/>
+          </Button>
+          <Button Name="NumberedListButton" ToolTip.Tip="Numbered List" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
+            <TextBlock Text="1." FontSize="12" FontWeight="Bold"/>
+          </Button>
+          <Button Name="ChecklistButton" ToolTip.Tip="Checklist" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
+            <TextBlock Text="☑" FontSize="14"/>
+          </Button>
 
-        <!-- Spacer -->
-        <Border Width="1"/>
+          <!-- Separator -->
+          <Separator Background="#3e3e42" Margin="4,0"/>
 
-        <!-- Preview Toggle -->
-        <Button Name="PreviewToggleButton" 
-                ToolTip.Tip="Toggle Preview (Ctrl+Shift+P)" 
-                Padding="8,4" 
-                Background="Transparent" 
-                Foreground="{StaticResource Brush.Accent}"
-                Margin="0,0,0,0">
-          <TextBlock Text="👁️ Preview" FontSize="12"/>
-        </Button>
-      </StackPanel>
+          <!-- Quote Button -->
+          <Button Name="QuoteButton" ToolTip.Tip="Quote" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
+            <TextBlock Text="&gt;" FontSize="14"/>
+          </Button>
+
+          <!-- Spacer -->
+          <Border Width="1"/>
+
+          <!-- View Options -->
+          <Button ToolTip.Tip="Line Numbers" Padding="8,4" 
+                  Background="{StaticResource Brush.Surface}" 
+                  Foreground="{StaticResource Brush.TextPrimary}"
+                  Command="{Binding ToggleLineNumbersCommand}">
+            <TextBlock Text="N" FontSize="12" FontWeight="Bold"/>
+          </Button>
+
+          <Button ToolTip.Tip="Word Wrap (Ctrl+Shift+W)" Padding="8,4" 
+                  Background="{StaticResource Brush.Surface}" 
+                  Foreground="{StaticResource Brush.TextPrimary}"
+                  Command="{Binding ToggleWordWrapCommand}">
+            <TextBlock Text="↵" FontSize="14"/>
+          </Button>
+
+          <Button ToolTip.Tip="Find &amp; Replace (Ctrl+H)" Padding="8,4" 
+                  Background="{StaticResource Brush.Surface}" 
+                  Foreground="{StaticResource Brush.TextPrimary}"
+                  Command="{Binding ShowFindReplacePanelCommand}">
+            <TextBlock Text="⌕" FontSize="14"/>
+          </Button>
+
+          <!-- Separator -->
+          <Separator Background="#3e3e42" Margin="4,0"/>
+
+          <!-- Preview Toggle -->
+          <Button Name="PreviewToggleButton" 
+                  ToolTip.Tip="Toggle Preview (Ctrl+Shift+P)" 
+                  Padding="8,4" 
+                  Background="Transparent" 
+                  Foreground="{StaticResource Brush.Accent}">
+            <TextBlock Text="👁 Preview" FontSize="12"/>
+          </Button>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <!-- Find and Replace Panel -->
+    <Border Grid.Row="2" 
+            Background="{StaticResource Brush.Surface}" 
+            Padding="15,12" 
+            BorderBrush="#252526" 
+            BorderThickness="0,0,0,1"
+            IsVisible="{Binding ShowFindReplace}">
+      <Grid ColumnDefinitions="Auto,*,Auto,*,Auto">
+        <!-- Find -->
+        <TextBlock Grid.Column="0" Text="Find:" VerticalAlignment="Center" Foreground="{StaticResource Brush.TextPrimary}" Margin="0,0,8,0"/>
+        <TextBox Grid.Column="1" 
+                 Text="{Binding FindText, Mode=TwoWay}" 
+                 Watermark="Search text..."
+                 VerticalAlignment="Center"
+                 Margin="0,0,12,0"/>
+        <TextBlock Grid.Column="2" 
+                   Foreground="{StaticResource Brush.TextSecondary}"
+                   VerticalAlignment="Center"
+                   Margin="0,0,12,0">
+          <Run Text="{Binding FindMatchCount}"/>
+          <Run Text=" matches"/>
+        </TextBlock>
+
+        <!-- Replace -->
+        <TextBlock Grid.Column="3" Text="Replace:" VerticalAlignment="Center" Foreground="{StaticResource Brush.TextPrimary}" Margin="0,0,8,0"/>
+        <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8">
+          <TextBox Text="{Binding ReplaceText, Mode=TwoWay}" 
+                   Watermark="Replacement text..."
+                   Width="200"
+                   VerticalAlignment="Center"/>
+          <Button Content="Replace All" 
+                  Command="{Binding ReplaceAllCommand}"
+                  Classes="accent"
+                  Padding="12,6"
+                  FontSize="12"/>
+        </StackPanel>
+      </Grid>
     </Border>
 
     <!-- Editor and Preview Pane -->
-    <Grid Grid.Row="2">
+    <Grid Grid.Row="3">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*"/>
         <ColumnDefinition Width="Auto"/>
         <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
 
-      <!-- Editor -->
-      <TextBox Grid.Column="0"
-               Text="{Binding NoteContent}"
-               AcceptsReturn="True"
-               TextWrapping="Wrap"
-               Background="{StaticResource Brush.Background}"
-               BorderThickness="0"
-               Padding="30"
-               Name="EditorTextBox"/>
+      <!-- Editor with optional line numbers -->
+      <Border Grid.Column="0" Background="{StaticResource Brush.Background}">
+        <Grid ColumnDefinitions="Auto,*">
+          <!-- Line Numbers (optional) -->
+          <Border Grid.Column="0" 
+                  IsVisible="{Binding ShowLineNumbers}"
+                  Background="{StaticResource Brush.SurfaceAlt}"
+                  BorderBrush="#252526"
+                  BorderThickness="0,0,1,0"
+                  Padding="8,30,8,0"
+                  MinWidth="50">
+            <TextBlock Name="LineNumbersPanel" 
+                       Foreground="{StaticResource Brush.TextSecondary}"
+                       FontFamily="Cascadia Code, Consolas, monospace"
+                       FontSize="12"
+                       TextAlignment="Right"/>
+          </Border>
+
+          <!-- Text Editor -->
+          <TextBox Grid.Column="1"
+                   Text="{Binding NoteContent}"
+                   AcceptsReturn="True"
+                   TextWrapping="{Binding WordWrapEnabled, Converter={StaticResource BoolToTextWrappingConverter}}"
+                   Background="{StaticResource Brush.Background}"
+                   BorderThickness="0"
+                   Padding="30"
+                   Name="EditorTextBox"/>
+        </Grid>
+      </Border>
 
       <!-- Splitter -->
       <GridSplitter Grid.Column="1" 
@@ -128,7 +237,7 @@
     </Grid>
 
     <!-- Status Bar -->
-    <Border Grid.Row="3" Background="{StaticResource Brush.Background}" Padding="20,6" BorderBrush="#252526" BorderThickness="0,1,0,0">
+    <Border Grid.Row="4" Background="{StaticResource Brush.Background}" Padding="20,6" BorderBrush="#252526" BorderThickness="0,1,0,0">
       <StackPanel Orientation="Horizontal" Spacing="20">
         <TextBlock Foreground="#555">
           <Run Text="{Binding WordCount}"/>

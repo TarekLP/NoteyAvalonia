@@ -115,6 +115,7 @@
       <Setter Property="Padding" Value="20,12"/>
       <Setter Property="HorizontalContentAlignment" Value="Center"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="MinHeight" Value="40"/>
     </Style>
 
     <Style Selector="Button.accent:pointerover /template/ ContentPresenter">
@@ -129,6 +130,7 @@
       <Setter Property="Padding" Value="20,12"/>
       <Setter Property="HorizontalContentAlignment" Value="Center"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="MinHeight" Value="40"/>
     </Style>
 
     <Style Selector="Button.danger:pointerover /template/ ContentPresenter">
@@ -139,8 +141,11 @@
   <Style Selector="Button.ghost">
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="Foreground" Value="{StaticResource Brush.TextSecondary}"/>
-    <Setter Property="CornerRadius" Value="6"/>
-    <Setter Property="Padding" Value="10,6"/>
+    <Setter Property="CornerRadius" Value="8"/>
+    <Setter Property="Padding" Value="20,12"/>
+    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="MinHeight" Value="40"/>
   </Style>
 
   <Style Selector="Button.ghost:pointerover /template/ ContentPresenter">

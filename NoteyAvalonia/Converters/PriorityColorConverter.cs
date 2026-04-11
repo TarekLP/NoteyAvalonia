@@ -1,12 +1,17 @@
-﻿using System;
+using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
+using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using NoteToolAvalonia.Models;
 
 namespace NoteToolAvalonia.Converters;
 
-public class PriorityColorConverter : IValueConverter
+/// <summary>
+/// Converts NotePriority enum values to color brushes for visual priority indicators.
+/// Can be used as both a converter and markup extension.
+/// </summary>
+public class PriorityColorConverter : MarkupExtension, IValueConverter
 {
 	public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
 	{
@@ -27,5 +32,10 @@ public class PriorityColorConverter : IValueConverter
 	public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
 	{
 		throw new NotImplementedException();
+	}
+
+	public override object ProvideValue(IServiceProvider serviceProvider)
+	{
+		return this;
 	}
 }

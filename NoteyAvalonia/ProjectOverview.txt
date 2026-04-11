@@ -1,4 +1,4 @@
-﻿PROJECT OVERVIEW - 04/10/2026 08:43:10
+﻿PROJECT OVERVIEW - 04/10/2026 12:09:53
 
 ========================================
 FOLDER: Models
@@ -103,25 +103,29 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Threading;
 using NoteToolAvalonia.Models;
 
 namespace NoteToolAvalonia.Services;
 
 public class DataService
 {
-    private readonly string _dataFolder;
-    private readonly string _boardsFile;
-    private readonly string _settingsFile;
-    private readonly JsonSerializerOptions _jsonOptions;
+	private readonly string _dataFolder;
+	private readonly string _boardsFile;
+	private readonly string _settingsFile;
+	private readonly JsonSerializerOptions _jsonOptions;
+	private readonly object _fileLock = new object();
+	private const int MaxRetries = 3;
+	private const int RetryDelayMs = 100;
 
-    public DataService()
-    {
-        _dataFolder = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "NoteToolAvalonia");
-        Directory.CreateDirectory(_dataFolder);
-        _boardsFile = Path.Combine(_dataFolder, "boards.json");
-        _settingsFile = Path.Combine(_dataFolder, "settings.json");
+	public DataService()
+	{
+		_dataFolder = Path.Combine(
+			Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+			"NoteToolAvalonia");
+		Directory.CreateDirectory(_dataFolder);
+		_boardsFile = Path.Combine(_dataFolder, "boards.json");
+		_settingsFile = Path.Combine(_dataFolder, "settings.json");
 		_jsonOptions = new JsonSerializerOptions
 		{
 			WriteIndented = true,
@@ -130,59 +134,270 @@ public class DataService
 		};
 	}
 
-    public List<Board> LoadBoards()
-    {
-        if (!File.Exists(_boardsFile)) return new List<Board>();
-        try
-        {
-            var json = File.ReadAllText(_boardsFile);
-            return JsonSerializer.Deserialize<List<Board>>(json, _jsonOptions) ?? new List<Board>();
-        }
-        catch { return new List<Board>(); }
-    }
+	public List<Board> LoadBoards()
+	{
+		lock (_fileLock)
+		{
+			if (!File.Exists(_boardsFile)) return new List<Board>();
+			try
+			{
+				var json = File.ReadAllText(_boardsFile);
+				return JsonSerializer.Deserialize<List<Board>>(json, _jsonOptions) ?? new List<Board>();
+			}
+			catch { return new List<Board>(); }
+		}
+	}
 
-    public void SaveBoards(List<Board> boards)
-    {
-        var json = JsonSerializer.Serialize(boards, _jsonOptions);
-        File.WriteAllText(_boardsFile, json);
-    }
+	public void SaveBoards(List<Board> boards)
+	{
+		lock (_fileLock)
+		{
+			var json = JsonSerializer.Serialize(boards, _jsonOptions);
+			WriteFileWithRetry(_boardsFile, json);
+		}
+	}
 
-    public void SaveBoard(Board board)
-    {
-        var boards = LoadBoards();
-        var idx = boards.FindIndex(b => b.Id == board.Id);
-        if (idx >= 0) boards[idx] = board;
-        else boards.Add(board);
-        SaveBoards(boards);
-    }
+	public void SaveBoard(Board board)
+	{
+		lock (_fileLock)
+		{
+			var boards = LoadBoards();
+			var idx = boards.FindIndex(b => b.Id == board.Id);
+			if (idx >= 0) boards[idx] = board;
+			else boards.Add(board);
+			SaveBoards(boards);
+		}
+	}
 
-    public void DeleteBoard(string boardId)
-    {
-        var boards = LoadBoards();
-        boards.RemoveAll(b => b.Id == boardId);
-        SaveBoards(boards);
-    }
+	public void DeleteBoard(string boardId)
+	{
+		lock (_fileLock)
+		{
+			var boards = LoadBoards();
+			boards.RemoveAll(b => b.Id == boardId);
+			SaveBoards(boards);
+		}
+	}
 
 	public AppSettings LoadSettings()
 	{
-		if (!File.Exists(_settingsFile)) return new AppSettings();
-		try
+		lock (_fileLock)
 		{
-			var json = File.ReadAllText(_settingsFile);
-			return JsonSerializer.Deserialize<AppSettings>(json, _jsonOptions) ?? new AppSettings();
+			if (!File.Exists(_settingsFile)) return new AppSettings();
+			try
+			{
+				var json = File.ReadAllText(_settingsFile);
+				return JsonSerializer.Deserialize<AppSettings>(json, _jsonOptions) ?? new AppSettings();
+			}
+			catch { return new AppSettings(); }
 		}
-		catch { return new AppSettings(); }
 	}
 
 	public void SaveSettings(AppSettings settings)
 	{
-		var json = JsonSerializer.Serialize(settings, _jsonOptions);
-		File.WriteAllText(_settingsFile, json);
+		lock (_fileLock)
+		{
+			var json = JsonSerializer.Serialize(settings, _jsonOptions);
+			WriteFileWithRetry(_settingsFile, json);
+		}
+	}
+
+	/// <summary>
+	/// Write file with retry logic to handle file locking from other processes.
+	/// Attempts up to MaxRetries times with RetryDelayMs between attempts.
+	/// </summary>
+	private void WriteFileWithRetry(string filePath, string content)
+	{
+		for (int attempt = 0; attempt < MaxRetries; attempt++)
+		{
+			try
+			{
+				File.WriteAllText(filePath, content);
+				return; // Success
+			}
+			catch (IOException) when (attempt < MaxRetries - 1)
+			{
+				// File is locked, wait and retry
+				Thread.Sleep(RetryDelayMs);
+			}
+			catch
+			{
+				throw; // Not a locking error, throw immediately
+			}
+		}
+
+		// If we got here, all retries failed
+		throw new IOException($"Could not write to {filePath} after {MaxRetries} attempts");
 	}
 
 	public string DataFolder => _dataFolder;
 }
 
+
+
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Services\EditHistoryService.cs ---
+----------------------------------------
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace NoteToolAvalonia.Services;
+
+/// <summary>
+/// Manages undo/redo history and revision snapshots for notes.
+/// Tracks edits up to a maximum and stores timestamped revisions.
+/// </summary>
+public class EditHistoryService
+{
+	private class HistoryState
+	{
+		public string Content { get; set; } = string.Empty;
+		public int CursorPosition { get; set; }
+		public DateTime Timestamp { get; set; }
+	}
+
+	private readonly List<HistoryState> _undoStack = new();
+	private readonly List<HistoryState> _redoStack = new();
+	private readonly List<HistoryState> _revisions = new();
+	private readonly int _maxUndoSteps;
+	private readonly int _maxRevisions;
+	private DateTime _lastRevisionTime = DateTime.Now;
+	private readonly TimeSpan _revisionInterval;
+
+	public int UndoCount => _undoStack.Count;
+	public int RedoCount => _redoStack.Count;
+	public int RevisionCount => _revisions.Count;
+
+	public EditHistoryService(int maxUndoSteps = 50, int maxRevisions = 100)
+	{
+		_maxUndoSteps = maxUndoSteps;
+		_maxRevisions = maxRevisions;
+		_revisionInterval = TimeSpan.FromMinutes(5);
+	}
+
+	/// <summary>
+	/// Push a new state onto the undo stack.
+	/// This clears the redo stack when called (user made a new edit after undo).
+	/// </summary>
+	public void Push(string content, int cursorPosition)
+	{
+		var state = new HistoryState
+		{
+			Content = content,
+			CursorPosition = cursorPosition,
+			Timestamp = DateTime.Now
+		};
+
+		_undoStack.Add(state);
+		_redoStack.Clear(); // Clear redo when new edit is made
+
+		// Trim undo stack if it exceeds max
+		if (_undoStack.Count > _maxUndoSteps)
+		{
+			_undoStack.RemoveAt(0);
+		}
+
+		// Auto-create revision if enough time has passed
+		if (DateTime.Now - _lastRevisionTime >= _revisionInterval)
+		{
+			CreateRevision(content);
+			_lastRevisionTime = DateTime.Now;
+		}
+	}
+
+	/// <summary>
+	/// Undo the last edit. Returns the previous state, or null if nothing to undo.
+	/// </summary>
+	public (string Content, int CursorPosition)? Undo()
+	{
+		if (_undoStack.Count == 0) return null;
+
+		var current = _undoStack[_undoStack.Count - 1];
+		_undoStack.RemoveAt(_undoStack.Count - 1);
+		_redoStack.Add(current);
+
+		if (_undoStack.Count == 0) return null;
+
+		var previous = _undoStack[_undoStack.Count - 1];
+		return (previous.Content, previous.CursorPosition);
+	}
+
+	/// <summary>
+	/// Redo the last undone edit. Returns the next state, or null if nothing to redo.
+	/// </summary>
+	public (string Content, int CursorPosition)? Redo()
+	{
+		if (_redoStack.Count == 0) return null;
+
+		var state = _redoStack[_redoStack.Count - 1];
+		_redoStack.RemoveAt(_redoStack.Count - 1);
+		_undoStack.Add(state);
+
+		return (state.Content, state.CursorPosition);
+	}
+
+	/// <summary>
+	/// Manually create a revision snapshot at the current moment.
+	/// </summary>
+	public void CreateRevision(string content)
+	{
+		var revision = new HistoryState
+		{
+			Content = content,
+			CursorPosition = 0, // Revisions don't track cursor
+			Timestamp = DateTime.Now
+		};
+
+		_revisions.Add(revision);
+
+		// Trim revisions if exceeds max
+		if (_revisions.Count > _maxRevisions)
+		{
+			_revisions.RemoveAt(0);
+		}
+	}
+
+	/// <summary>
+	/// Get all revisions, ordered by timestamp (oldest first).
+	/// Returns tuples of (timestamp, content).
+	/// </summary>
+	public List<(DateTime Timestamp, string Content)> GetRevisions()
+	{
+		return _revisions
+			.Select(r => (r.Timestamp, r.Content))
+			.ToList();
+	}
+
+	/// <summary>
+	/// Get a specific revision by index. Returns null if index is out of range.
+	/// </summary>
+	public string? GetRevision(int index)
+	{
+		if (index < 0 || index >= _revisions.Count) return null;
+		return _revisions[index].Content;
+	}
+
+	/// <summary>
+	/// Clear all undo/redo history and revisions.
+	/// Use this when starting a new note or closing the editor.
+	/// </summary>
+	public void Clear()
+	{
+		_undoStack.Clear();
+		_redoStack.Clear();
+		_revisions.Clear();
+		_lastRevisionTime = DateTime.Now;
+	}
+
+	/// <summary>
+	/// Get a formatted string of the undo/redo stack sizes for debugging.
+	/// </summary>
+	public string GetDebugInfo()
+	{
+		return $"Undo: {UndoCount}, Redo: {RedoCount}, Revisions: {RevisionCount}";
+	}
+}
 
 
 
@@ -352,6 +567,7 @@ FOLDER: Styles
       <Setter Property="Padding" Value="20,12"/>
       <Setter Property="HorizontalContentAlignment" Value="Center"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="MinHeight" Value="40"/>
     </Style>
 
     <Style Selector="Button.accent:pointerover /template/ ContentPresenter">
@@ -366,6 +582,7 @@ FOLDER: Styles
       <Setter Property="Padding" Value="20,12"/>
       <Setter Property="HorizontalContentAlignment" Value="Center"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="MinHeight" Value="40"/>
     </Style>
 
     <Style Selector="Button.danger:pointerover /template/ ContentPresenter">
@@ -376,8 +593,11 @@ FOLDER: Styles
   <Style Selector="Button.ghost">
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="Foreground" Value="{StaticResource Brush.TextSecondary}"/>
-    <Setter Property="CornerRadius" Value="6"/>
-    <Setter Property="Padding" Value="10,6"/>
+    <Setter Property="CornerRadius" Value="8"/>
+    <Setter Property="Padding" Value="20,12"/>
+    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="MinHeight" Value="40"/>
   </Style>
 
   <Style Selector="Button.ghost:pointerover /template/ ContentPresenter">
@@ -775,6 +995,8 @@ using NoteToolAvalonia.Services;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace NoteToolAvalonia.ViewModels;
 
@@ -784,6 +1006,9 @@ public partial class NoteEditorViewModel : ViewModelBase
 	private readonly DataService _dataService;
 	private readonly Board _board;
 	private readonly NoteCard _card;
+	private readonly EditHistoryService _editHistory;
+	private System.Threading.CancellationTokenSource? _autoSaveCancellation;
+	private int _autoSaveDelayMs;
 
 	[ObservableProperty]
 	private string _noteTitle;
@@ -824,6 +1049,33 @@ public partial class NoteEditorViewModel : ViewModelBase
 	[ObservableProperty]
 	private string _statusMessage = "";
 
+	[ObservableProperty]
+	private bool _showLineNumbers = false;
+
+	[ObservableProperty]
+	private bool _wordWrapEnabled = true;
+
+	[ObservableProperty]
+	private int _undoCount = 0;
+
+	[ObservableProperty]
+	private int _redoCount = 0;
+
+	[ObservableProperty]
+	private string _findText = "";
+
+	[ObservableProperty]
+	private string _replaceText = "";
+
+	[ObservableProperty]
+	private bool _showFindReplace = false;
+
+	[ObservableProperty]
+	private int _findMatchCount = 0;
+
+	[ObservableProperty]
+	private int _currentFindMatch = 0;
+
 	public ObservableCollection<NotePriority> PriorityLevels { get; } = new(Enum.GetValues<NotePriority>());
 
 	public NoteEditorViewModel(NoteCard card, Board board, BoardColumn column,
@@ -833,6 +1085,7 @@ public partial class NoteEditorViewModel : ViewModelBase
 		_board = board;
 		_navigation = navigation;
 		_dataService = dataService;
+		_editHistory = new EditHistoryService(maxUndoSteps: 50, maxRevisions: 100);
 
 		_noteTitle = card.Title;
 		_noteContent = card.Content;
@@ -841,28 +1094,68 @@ public partial class NoteEditorViewModel : ViewModelBase
 		_createdAt = card.CreatedAt;
 		_lastModified = card.LastModified;
 
+		// Load auto-save settings from AppSettings
+		LoadAutoSaveSettings();
+
 		UpdateStatistics();
+	}
+
+	/// <summary>
+	/// Load auto-save delay from AppSettings.
+	/// Converts minutes to milliseconds, with a minimum of 1000ms.
+	/// </summary>
+	private void LoadAutoSaveSettings()
+	{
+		try
+		{
+			var settings = _dataService.LoadSettings();
+			if (settings.AutoSave && settings.AutoSaveInterval > 0)
+			{
+				// Convert minutes to milliseconds (minimum 1 second)
+				_autoSaveDelayMs = Math.Max(1000, settings.AutoSaveInterval * 1000);
+			}
+			else
+			{
+				// Auto-save disabled
+				_autoSaveDelayMs = int.MaxValue; // Effectively disable by setting to huge value
+			}
+		}
+		catch
+		{
+			// Default to 2.5 seconds if there's an error loading settings
+			_autoSaveDelayMs = 2500;
+		}
 	}
 
 	partial void OnNoteContentChanged(string value)
 	{
 		HasUnsavedChanges = true;
 		UpdateStatistics();
+		ScheduleAutoSave();
+		UpdateFindMatches();
 	}
 
 	partial void OnNoteTitleChanged(string value)
 	{
 		HasUnsavedChanges = true;
+		ScheduleAutoSave();
 	}
 
 	partial void OnSelectedPriorityChanged(NotePriority value)
 	{
 		HasUnsavedChanges = true;
+		ScheduleAutoSave();
 	}
 
 	partial void OnTagsChanged(string value)
 	{
 		HasUnsavedChanges = true;
+		ScheduleAutoSave();
+	}
+
+	partial void OnFindTextChanged(string value)
+	{
+		UpdateFindMatches();
 	}
 
 	private void UpdateStatistics()
@@ -881,6 +1174,55 @@ public partial class NoteEditorViewModel : ViewModelBase
 		}
 	}
 
+	private void UpdateUndoRedoCount()
+	{
+		UndoCount = _editHistory.UndoCount;
+		RedoCount = _editHistory.RedoCount;
+	}
+
+	private void ScheduleAutoSave()
+	{
+		// Cancel any pending auto-save
+		_autoSaveCancellation?.Cancel();
+		_autoSaveCancellation = new System.Threading.CancellationTokenSource();
+
+		// Only schedule if auto-save is enabled (delay is not max value)
+		if (_autoSaveDelayMs == int.MaxValue)
+			return;
+
+		// Schedule a save after the delay
+		Task.Delay(_autoSaveDelayMs, _autoSaveCancellation.Token)
+			.ContinueWith(_ =>
+			{
+				if (_autoSaveCancellation?.Token.IsCancellationRequested == false)
+				{
+					AutoSave();
+				}
+			});
+	}
+
+	private void AutoSave()
+	{
+		_card.Title = string.IsNullOrWhiteSpace(NoteTitle) ? "Untitled Note" : NoteTitle;
+		_card.Content = NoteContent ?? string.Empty;
+		_card.Priority = SelectedPriority;
+		_card.Tags = Tags ?? string.Empty;
+		_card.LastModified = DateTime.Now;
+		LastModified = _card.LastModified;
+
+		_dataService.SaveBoard(_board);
+		_editHistory.Push(NoteContent, 0); // Track for undo history
+		UpdateUndoRedoCount();
+
+		HasUnsavedChanges = false;
+		StatusMessage = "Saving...";
+
+		Task.Delay(1500).ContinueWith(_ =>
+		{
+			Avalonia.Threading.Dispatcher.UIThread.Post(() => StatusMessage = "");
+		});
+	}
+
 	[RelayCommand]
 	private void Save()
 	{
@@ -895,7 +1237,42 @@ public partial class NoteEditorViewModel : ViewModelBase
 		HasUnsavedChanges = false;
 		StatusMessage = "Saved!";
 
-		System.Threading.Tasks.Task.Delay(2000).ContinueWith(_ =>
+		Task.Delay(2000).ContinueWith(_ =>
+		{
+			Avalonia.Threading.Dispatcher.UIThread.Post(() => StatusMessage = "");
+		});
+	}
+
+	[RelayCommand]
+	private void Undo()
+	{
+		var previousState = _editHistory.Undo();
+		if (previousState.HasValue)
+		{
+			NoteContent = previousState.Value.Content;
+			UpdateStatistics();
+			UpdateUndoRedoCount();
+			ShowStatusMessage("â†¶ Undo");
+		}
+	}
+
+	[RelayCommand]
+	private void Redo()
+	{
+		var nextState = _editHistory.Redo();
+		if (nextState.HasValue)
+		{
+			NoteContent = nextState.Value.Content;
+			UpdateStatistics();
+			UpdateUndoRedoCount();
+			ShowStatusMessage("â†· Redo");
+		}
+	}
+
+	private void ShowStatusMessage(string message)
+	{
+		StatusMessage = message;
+		Task.Delay(800).ContinueWith(_ =>
 		{
 			Avalonia.Threading.Dispatcher.UIThread.Post(() => StatusMessage = "");
 		});
@@ -930,6 +1307,70 @@ public partial class NoteEditorViewModel : ViewModelBase
 	private void ToggleFullscreen()
 	{
 		IsFullscreen = !IsFullscreen;
+	}
+
+	[RelayCommand]
+	private void ToggleLineNumbers()
+	{
+		ShowLineNumbers = !ShowLineNumbers;
+	}
+
+	[RelayCommand]
+	private void ToggleWordWrap()
+	{
+		WordWrapEnabled = !WordWrapEnabled;
+	}
+
+	[RelayCommand]
+	private void ShowFindReplacePanel()
+	{
+		ShowFindReplace = !ShowFindReplace;
+		if (!ShowFindReplace)
+		{
+			FindText = "";
+			ReplaceText = "";
+		}
+	}
+
+	private void UpdateFindMatches()
+	{
+		if (string.IsNullOrWhiteSpace(FindText) || string.IsNullOrWhiteSpace(NoteContent))
+		{
+			FindMatchCount = 0;
+			CurrentFindMatch = 0;
+			return;
+		}
+
+		try
+		{
+			var matches = Regex.Matches(NoteContent, Regex.Escape(FindText), RegexOptions.IgnoreCase);
+			FindMatchCount = matches.Count;
+			CurrentFindMatch = FindMatchCount > 0 ? 1 : 0;
+		}
+		catch
+		{
+			FindMatchCount = 0;
+			CurrentFindMatch = 0;
+		}
+	}
+
+	[RelayCommand]
+	private void ReplaceAll()
+	{
+		if (string.IsNullOrWhiteSpace(FindText) || string.IsNullOrWhiteSpace(NoteContent))
+			return;
+
+		try
+		{
+			var newContent = Regex.Replace(NoteContent, Regex.Escape(FindText), ReplaceText, RegexOptions.IgnoreCase);
+			NoteContent = newContent;
+			UpdateFindMatches();
+			ShowStatusMessage($"Replaced {FindMatchCount} occurrences");
+		}
+		catch
+		{
+			ShowStatusMessage("Replace failed");
+		}
 	}
 
 	[RelayCommand]
@@ -985,6 +1426,7 @@ public partial class NoteEditorViewModel : ViewModelBase
 		NoteContent = (NoteContent ?? "") + text;
 	}
 }
+
 
 
 
@@ -1758,111 +2200,220 @@ public partial class MainWindow : Window
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:NoteToolAvalonia.ViewModels"
              xmlns:md="clr-namespace:Markdown.Avalonia;assembly=Markdown.Avalonia"
+             xmlns:local="using:NoteToolAvalonia.Views"
              x:Class="NoteToolAvalonia.Views.NoteEditorView"
              x:DataType="vm:NoteEditorViewModel">
 
-  <Grid RowDefinitions="Auto,Auto,*,Auto">
+  <UserControl.Resources>
+    <local:BoolToTextWrappingConverter x:Key="BoolToTextWrappingConverter"/>
+  </UserControl.Resources>
+
+  <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
     <!-- Header with Back and Save -->
     <Border Grid.Row="0" Background="{StaticResource Brush.Background}" Padding="15,8" BorderBrush="#252526" BorderThickness="0,0,0,1">
       <DockPanel>
         <StackPanel Orientation="Horizontal" Spacing="5" DockPanel.Dock="Left">
           <Button Command="{Binding GoBackCommand}" Background="Transparent">
-            <TextBlock Text="Back" Foreground="MediumPurple"/>
+            <TextBlock Text="â† Back" Foreground="MediumPurple"/>
           </Button>
           <TextBox Text="{Binding NoteTitle}" Width="300" FontWeight="Bold" Background="Transparent" 
                    BorderThickness="0" VerticalAlignment="Center"/>
         </StackPanel>
 
         <Button DockPanel.Dock="Right" Command="{Binding SaveCommand}" Background="{StaticResource Brush.Accent}" Foreground="White" 
-                Content="Save"/>
+                Content="Save" Margin="0,0,8,0"/>
       </DockPanel>
     </Border>
 
-    <!-- Toolbar -->
+    <!-- Main Toolbar - Row 1 -->
     <Border Grid.Row="1" Background="{StaticResource Brush.Background}" Padding="15,8" BorderBrush="#252526" BorderThickness="0,0,0,1">
-      <StackPanel Orientation="Horizontal" Spacing="8">
-        <!-- Formatting Buttons -->
-        <Button ToolTip.Tip="Bold (Ctrl+B)" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-          <TextBlock Text="𝐁" FontSize="14" FontWeight="Bold"/>
-        </Button>
-        <Button ToolTip.Tip="Italic (Ctrl+I)" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-          <TextBlock Text="𝘐" FontSize="14" FontStyle="Italic"/>
-        </Button>
-        <Button ToolTip.Tip="Strikethrough" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-          <TextBlock Text="S̶" FontSize="14"/>
-        </Button>
+      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <!-- Undo/Redo -->
+          <Button ToolTip.Tip="Undo (Ctrl+Z)" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}"
+                  Command="{Binding UndoCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+              <TextBlock Text="â†¶" FontSize="14"/>
+              <TextBlock Text="{Binding UndoCount}" FontSize="11"/>
+            </StackPanel>
+          </Button>
+          <Button ToolTip.Tip="Redo (Ctrl+Y)" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}"
+                  Command="{Binding RedoCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+              <TextBlock Text="â†·" FontSize="14"/>
+              <TextBlock Text="{Binding RedoCount}" FontSize="11"/>
+            </StackPanel>
+          </Button>
 
-        <!-- Separator -->
-        <Separator Background="#3e3e42" Margin="4,0"/>
+          <!-- Separator -->
+          <Separator Background="#3e3e42" Margin="4,0"/>
 
-        <!-- Heading Buttons -->
-        <Button ToolTip.Tip="Heading 1" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-          <TextBlock Text="H1" FontSize="12" FontWeight="Bold"/>
-        </Button>
-        <Button ToolTip.Tip="Heading 2" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-          <TextBlock Text="H2" FontSize="12" FontWeight="Bold"/>
-        </Button>
-        <Button ToolTip.Tip="Heading 3" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-          <TextBlock Text="H3" FontSize="12" FontWeight="Bold"/>
-        </Button>
+          <!-- Formatting Buttons (wrap selection) -->
+          <Button Name="BoldButton" ToolTip.Tip="Bold: Ctrl+B or select text then click" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
+            <TextBlock Text="ð" FontSize="14" FontWeight="Bold"/>
+          </Button>
+          <Button Name="ItalicButton" ToolTip.Tip="Italic: Ctrl+I or select text then click" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
+            <TextBlock Text="ð˜" FontSize="14" FontStyle="Italic"/>
+          </Button>
+          <Button Name="StrikethroughButton" ToolTip.Tip="Strikethrough: select text then click" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
+            <TextBlock Text="SÌ¶" FontSize="14"/>
+          </Button>
+          <Button Name="CodeButton" ToolTip.Tip="Inline code: select text then click" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
+            <TextBlock Text="`" FontSize="14" FontWeight="Bold"/>
+          </Button>
 
-        <!-- Separator -->
-        <Separator Background="#3e3e42" Margin="4,0"/>
+          <!-- Separator -->
+          <Separator Background="#3e3e42" Margin="4,0"/>
 
-        <!-- List Buttons -->
-        <Button ToolTip.Tip="Bullet List" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-          <TextBlock Text="•" FontSize="14"/>
-        </Button>
-        <Button ToolTip.Tip="Numbered List" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-          <TextBlock Text="1." FontSize="12" FontWeight="Bold"/>
-        </Button>
-        <Button ToolTip.Tip="Checklist" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-          <TextBlock Text="☑" FontSize="14"/>
-        </Button>
+          <!-- Heading Buttons -->
+          <Button Name="Heading1Button" ToolTip.Tip="Heading 1" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
+            <TextBlock Text="H1" FontSize="12" FontWeight="Bold"/>
+          </Button>
+          <Button Name="Heading2Button" ToolTip.Tip="Heading 2" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
+            <TextBlock Text="H2" FontSize="12" FontWeight="Bold"/>
+          </Button>
+          <Button Name="Heading3Button" ToolTip.Tip="Heading 3" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
+            <TextBlock Text="H3" FontSize="12" FontWeight="Bold"/>
+          </Button>
 
-        <!-- Separator -->
-        <Separator Background="#3e3e42" Margin="4,0"/>
+          <!-- Separator -->
+          <Separator Background="#3e3e42" Margin="4,0"/>
 
-        <!-- Code and Quote -->
-        <Button ToolTip.Tip="Code Block" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-          <TextBlock Text="&lt;&gt;" FontSize="12" FontWeight="Bold"/>
-        </Button>
-        <Button ToolTip.Tip="Quote" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-          <TextBlock Text="&gt;" FontSize="14"/>
-        </Button>
+          <!-- List Buttons -->
+          <Button Name="BulletListButton" ToolTip.Tip="Bullet List" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
+            <TextBlock Text="â€¢" FontSize="14"/>
+          </Button>
+          <Button Name="NumberedListButton" ToolTip.Tip="Numbered List" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
+            <TextBlock Text="1." FontSize="12" FontWeight="Bold"/>
+          </Button>
+          <Button Name="ChecklistButton" ToolTip.Tip="Checklist" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
+            <TextBlock Text="â˜‘" FontSize="14"/>
+          </Button>
 
-        <!-- Spacer -->
-        <Border Width="1"/>
+          <!-- Separator -->
+          <Separator Background="#3e3e42" Margin="4,0"/>
 
-        <!-- Preview Toggle -->
-        <Button Name="PreviewToggleButton" 
-                ToolTip.Tip="Toggle Preview (Ctrl+Shift+P)" 
-                Padding="8,4" 
-                Background="Transparent" 
-                Foreground="{StaticResource Brush.Accent}"
-                Margin="0,0,0,0">
-          <TextBlock Text="👁️ Preview" FontSize="12"/>
-        </Button>
-      </StackPanel>
+          <!-- Quote Button -->
+          <Button Name="QuoteButton" ToolTip.Tip="Quote" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
+            <TextBlock Text="&gt;" FontSize="14"/>
+          </Button>
+
+          <!-- Spacer -->
+          <Border Width="1"/>
+
+          <!-- View Options -->
+          <Button ToolTip.Tip="Line Numbers" Padding="8,4" 
+                  Background="{StaticResource Brush.Surface}" 
+                  Foreground="{StaticResource Brush.TextPrimary}"
+                  Command="{Binding ToggleLineNumbersCommand}">
+            <TextBlock Text="N" FontSize="12" FontWeight="Bold"/>
+          </Button>
+
+          <Button ToolTip.Tip="Word Wrap (Ctrl+Shift+W)" Padding="8,4" 
+                  Background="{StaticResource Brush.Surface}" 
+                  Foreground="{StaticResource Brush.TextPrimary}"
+                  Command="{Binding ToggleWordWrapCommand}">
+            <TextBlock Text="â†µ" FontSize="14"/>
+          </Button>
+
+          <Button ToolTip.Tip="Find &amp; Replace (Ctrl+H)" Padding="8,4" 
+                  Background="{StaticResource Brush.Surface}" 
+                  Foreground="{StaticResource Brush.TextPrimary}"
+                  Command="{Binding ShowFindReplacePanelCommand}">
+            <TextBlock Text="âŒ•" FontSize="14"/>
+          </Button>
+
+          <!-- Separator -->
+          <Separator Background="#3e3e42" Margin="4,0"/>
+
+          <!-- Preview Toggle -->
+          <Button Name="PreviewToggleButton" 
+                  ToolTip.Tip="Toggle Preview (Ctrl+Shift+P)" 
+                  Padding="8,4" 
+                  Background="Transparent" 
+                  Foreground="{StaticResource Brush.Accent}">
+            <TextBlock Text="ðŸ‘ Preview" FontSize="12"/>
+          </Button>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <!-- Find and Replace Panel -->
+    <Border Grid.Row="2" 
+            Background="{StaticResource Brush.Surface}" 
+            Padding="15,12" 
+            BorderBrush="#252526" 
+            BorderThickness="0,0,0,1"
+            IsVisible="{Binding ShowFindReplace}">
+      <Grid ColumnDefinitions="Auto,*,Auto,*,Auto">
+        <!-- Find -->
+        <TextBlock Grid.Column="0" Text="Find:" VerticalAlignment="Center" Foreground="{StaticResource Brush.TextPrimary}" Margin="0,0,8,0"/>
+        <TextBox Grid.Column="1" 
+                 Text="{Binding FindText, Mode=TwoWay}" 
+                 Watermark="Search text..."
+                 VerticalAlignment="Center"
+                 Margin="0,0,12,0"/>
+        <TextBlock Grid.Column="2" 
+                   Foreground="{StaticResource Brush.TextSecondary}"
+                   VerticalAlignment="Center"
+                   Margin="0,0,12,0">
+          <Run Text="{Binding FindMatchCount}"/>
+          <Run Text=" matches"/>
+        </TextBlock>
+
+        <!-- Replace -->
+        <TextBlock Grid.Column="3" Text="Replace:" VerticalAlignment="Center" Foreground="{StaticResource Brush.TextPrimary}" Margin="0,0,8,0"/>
+        <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8">
+          <TextBox Text="{Binding ReplaceText, Mode=TwoWay}" 
+                   Watermark="Replacement text..."
+                   Width="200"
+                   VerticalAlignment="Center"/>
+          <Button Content="Replace All" 
+                  Command="{Binding ReplaceAllCommand}"
+                  Classes="accent"
+                  Padding="12,6"
+                  FontSize="12"/>
+        </StackPanel>
+      </Grid>
     </Border>
 
     <!-- Editor and Preview Pane -->
-    <Grid Grid.Row="2">
+    <Grid Grid.Row="3">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*"/>
         <ColumnDefinition Width="Auto"/>
         <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
 
-      <!-- Editor -->
-      <TextBox Grid.Column="0"
-               Text="{Binding NoteContent}"
-               AcceptsReturn="True"
-               TextWrapping="Wrap"
-               Background="{StaticResource Brush.Background}"
-               BorderThickness="0"
-               Padding="30"
-               Name="EditorTextBox"/>
+      <!-- Editor with optional line numbers -->
+      <Border Grid.Column="0" Background="{StaticResource Brush.Background}">
+        <Grid ColumnDefinitions="Auto,*">
+          <!-- Line Numbers (optional) -->
+          <Border Grid.Column="0" 
+                  IsVisible="{Binding ShowLineNumbers}"
+                  Background="{StaticResource Brush.SurfaceAlt}"
+                  BorderBrush="#252526"
+                  BorderThickness="0,0,1,0"
+                  Padding="8,30,8,0"
+                  MinWidth="50">
+            <TextBlock Name="LineNumbersPanel" 
+                       Foreground="{StaticResource Brush.TextSecondary}"
+                       FontFamily="Cascadia Code, Consolas, monospace"
+                       FontSize="12"
+                       TextAlignment="Right"/>
+          </Border>
+
+          <!-- Text Editor -->
+          <TextBox Grid.Column="1"
+                   Text="{Binding NoteContent}"
+                   AcceptsReturn="True"
+                   TextWrapping="{Binding WordWrapEnabled, Converter={StaticResource BoolToTextWrappingConverter}}"
+                   Background="{StaticResource Brush.Background}"
+                   BorderThickness="0"
+                   Padding="30"
+                   Name="EditorTextBox"/>
+        </Grid>
+      </Border>
 
       <!-- Splitter -->
       <GridSplitter Grid.Column="1" 
@@ -1884,7 +2435,7 @@ public partial class MainWindow : Window
     </Grid>
 
     <!-- Status Bar -->
-    <Border Grid.Row="3" Background="{StaticResource Brush.Background}" Padding="20,6" BorderBrush="#252526" BorderThickness="0,1,0,0">
+    <Border Grid.Row="4" Background="{StaticResource Brush.Background}" Padding="20,6" BorderBrush="#252526" BorderThickness="0,1,0,0">
       <StackPanel Orientation="Horizontal" Spacing="20">
         <TextBlock Foreground="#555">
           <Run Text="{Binding WordCount}"/>
@@ -1906,28 +2457,69 @@ public partial class MainWindow : Window
 
 
 
+
 --- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Views\NoteEditorView.axaml.cs ---
 ----------------------------------------
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Markup.Xaml;
 using Avalonia.VisualTree;
 using NoteToolAvalonia.ViewModels;
 using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 namespace NoteToolAvalonia.Views;
+
+public class BoolToTextWrappingConverter : IValueConverter
+{
+	public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+	{
+		if (value is bool b)
+		{
+			return b ? Avalonia.Media.TextWrapping.Wrap : Avalonia.Media.TextWrapping.NoWrap;
+		}
+		return Avalonia.Media.TextWrapping.Wrap;
+	}
+
+	public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+	{
+		throw new NotImplementedException();
+	}
+}
 
 public partial class NoteEditorView : UserControl
 {
 	private TextBox? _editorTextBox;
 	private Border? _previewPane;
 	private Button? _previewToggleButton;
+	private TextBlock? _lineNumbersPanel;
+
+	// Smart wrapping buttons
+	private Button? _boldButton;
+	private Button? _italicButton;
+	private Button? _strikethroughButton;
+	private Button? _codeButton;
+	private Button? _heading1Button;
+	private Button? _heading2Button;
+	private Button? _heading3Button;
+	private Button? _bulletListButton;
+	private Button? _numberedListButton;
+	private Button? _checklistButton;
+	private Button? _quoteButton;
 
 	public NoteEditorView()
 	{
 		InitializeComponent();
+	}
+
+	private void InitializeComponent()
+	{
+		AvaloniaXamlLoader.Load(this);
 	}
 
 	protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -1937,19 +2529,51 @@ public partial class NoteEditorView : UserControl
 		_editorTextBox = this.FindControl<TextBox>("EditorTextBox");
 		_previewPane = this.FindControl<Border>("PreviewPane");
 		_previewToggleButton = this.FindControl<Button>("PreviewToggleButton");
+		_lineNumbersPanel = this.FindControl<TextBlock>("LineNumbersPanel");
+
+		// Find smart wrapping buttons
+		_boldButton = this.FindControl<Button>("BoldButton");
+		_italicButton = this.FindControl<Button>("ItalicButton");
+		_strikethroughButton = this.FindControl<Button>("StrikethroughButton");
+		_codeButton = this.FindControl<Button>("CodeButton");
+		_heading1Button = this.FindControl<Button>("Heading1Button");
+		_heading2Button = this.FindControl<Button>("Heading2Button");
+		_heading3Button = this.FindControl<Button>("Heading3Button");
+		_bulletListButton = this.FindControl<Button>("BulletListButton");
+		_numberedListButton = this.FindControl<Button>("NumberedListButton");
+		_checklistButton = this.FindControl<Button>("ChecklistButton");
+		_quoteButton = this.FindControl<Button>("QuoteButton");
 
 		if (_previewToggleButton != null)
 		{
 			_previewToggleButton.Click += PreviewToggle_Click;
 		}
 
-		// Wire up toolbar buttons - collect all buttons except specific ones
+		// Wire up smart wrapping buttons
+		if (_boldButton != null) _boldButton.Click += (s, e) => WrapSelectedText("**", "**");
+		if (_italicButton != null) _italicButton.Click += (s, e) => WrapSelectedText("*", "*");
+		if (_strikethroughButton != null) _strikethroughButton.Click += (s, e) => WrapSelectedText("~~", "~~");
+		if (_codeButton != null) _codeButton.Click += (s, e) => WrapSelectedText("`", "`");
+		if (_heading1Button != null) _heading1Button.Click += (s, e) => PrependToLine("# ");
+		if (_heading2Button != null) _heading2Button.Click += (s, e) => PrependToLine("## ");
+		if (_heading3Button != null) _heading3Button.Click += (s, e) => PrependToLine("### ");
+		if (_bulletListButton != null) _bulletListButton.Click += (s, e) => PrependToLine("- ");
+		if (_numberedListButton != null) _numberedListButton.Click += (s, e) => PrependToLine("1. ");
+		if (_checklistButton != null) _checklistButton.Click += (s, e) => PrependToLine("- [ ] ");
+		if (_quoteButton != null) _quoteButton.Click += (s, e) => PrependToLine("> ");
+
+		// Wire up toolbar buttons for insert-at-cursor
 		foreach (var button in this.GetVisualDescendants().OfType<Button>())
 		{
-			if (button == _previewToggleButton) continue;
-
 			var toolTip = button.GetValue(ToolTip.TipProperty)?.ToString() ?? "";
 			if (string.IsNullOrEmpty(toolTip) || toolTip.Contains("Back") || toolTip.Contains("Save"))
+				continue;
+
+			// Skip buttons we already handled
+			if (button == _boldButton || button == _italicButton || button == _strikethroughButton ||
+				button == _codeButton || button == _heading1Button || button == _heading2Button ||
+				button == _heading3Button || button == _bulletListButton || button == _numberedListButton ||
+				button == _checklistButton || button == _quoteButton || button == _previewToggleButton)
 				continue;
 
 			button.Click += (s, e) => OnToolbarButtonClick((Button)s!);
@@ -1957,73 +2581,34 @@ public partial class NoteEditorView : UserControl
 
 		AddHandler(KeyDownEvent, OnKeyDown, handledEventsToo: true);
 		UpdatePreviewVisibility();
+		UpdateLineNumbers();
+
+		// Listen for content changes to update line numbers
+		if (_editorTextBox != null)
+		{
+			_editorTextBox.TextChanged += EditorTextBox_TextChanged;
+		}
 	}
 
-	private void OnKeyDown(object? sender, KeyEventArgs e)
+	private void EditorTextBox_TextChanged(object? sender, TextChangedEventArgs e)
 	{
-		if (DataContext is not NoteEditorViewModel vm) return;
-
-		// Ctrl+B for Bold
-		if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.B)
-		{
-			InsertMarkdown("**", "**");
-			e.Handled = true;
-		}
-		// Ctrl+I for Italic
-		else if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.I)
-		{
-			InsertMarkdown("_", "_");
-			e.Handled = true;
-		}
-		// Ctrl+Shift+P for Preview toggle
-		else if (e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift) && e.Key == Key.P)
-		{
-			vm.IsPreviewVisible = !vm.IsPreviewVisible;
-			UpdatePreviewVisibility();
-			e.Handled = true;
-		}
+		UpdateLineNumbers();
 	}
 
-	private void OnToolbarButtonClick(Button button)
+	private void UpdateLineNumbers()
 	{
-		if (_editorTextBox == null) return;
+		if (_lineNumbersPanel == null || _editorTextBox == null) return;
 
-		var toolTip = button.GetValue(ToolTip.TipProperty)?.ToString() ?? "";
-
-		// Formatting
-		if (toolTip.Contains("Bold"))
-			InsertMarkdown("**", "**");
-		else if (toolTip.Contains("Italic"))
-			InsertMarkdown("_", "_");
-		else if (toolTip.Contains("Strikethrough"))
-			InsertMarkdown("~~", "~~");
-
-		// Headings
-		else if (toolTip.Contains("Heading 1"))
-			InsertMarkdown("# ", "");
-		else if (toolTip.Contains("Heading 2"))
-			InsertMarkdown("## ", "");
-		else if (toolTip.Contains("Heading 3"))
-			InsertMarkdown("### ", "");
-
-		// Lists
-		else if (toolTip.Contains("Bullet List"))
-			InsertMarkdown("- ", "");
-		else if (toolTip.Contains("Numbered List"))
-			InsertMarkdown("1. ", "");
-		else if (toolTip.Contains("Checklist"))
-			InsertMarkdown("- [ ] ", "");
-
-		// Code and Quote
-		else if (toolTip.Contains("Code Block"))
-			InsertMarkdown("```\n", "\n```");
-		else if (toolTip.Contains("Quote"))
-			InsertMarkdown("> ", "");
-
-		_editorTextBox?.Focus();
+		var lineCount = _editorTextBox.Text?.Count(c => c == '\n') + 1 ?? 1;
+		var lineNumbers = string.Join(Environment.NewLine, Enumerable.Range(1, lineCount));
+		_lineNumbersPanel.Text = lineNumbers;
 	}
 
-	private void InsertMarkdown(string before, string after)
+	/// <summary>
+	/// Wrap selected text with before and after markers.
+	/// If no text is selected, inserts the markers at cursor.
+	/// </summary>
+	private void WrapSelectedText(string before, string after)
 	{
 		if (_editorTextBox == null) return;
 
@@ -2042,11 +2627,157 @@ public partial class NoteEditorView : UserControl
 		}
 		else
 		{
-			// Insert at cursor
+			// No selection: insert markers at cursor
 			var newText = text.Substring(0, cursorPos) + before + after + text.Substring(cursorPos);
 			_editorTextBox.Text = newText;
 			_editorTextBox.CaretIndex = cursorPos + before.Length;
 		}
+	}
+
+	/// <summary>
+	/// Prepend text to the line containing the cursor.
+	/// If text is selected, prepends to each line in the selection.
+	/// </summary>
+	private void PrependToLine(string prefix)
+	{
+		if (_editorTextBox == null) return;
+
+		var text = _editorTextBox.Text ?? "";
+		var cursorPos = _editorTextBox.CaretIndex;
+		var selectedLength = _editorTextBox.SelectedText?.Length ?? 0;
+
+		// Find the start of the current line
+		var lineStart = text.LastIndexOf('\n', cursorPos - 1) + 1;
+		if (lineStart < 0) lineStart = 0;
+
+		// If text is selected, apply to each line in selection
+		if (selectedLength > 0)
+		{
+			var selectionStart = _editorTextBox.SelectionStart;
+			var selectionEnd = selectionStart + selectedLength;
+
+			// Find start of first line in selection
+			var firstLineStart = text.LastIndexOf('\n', selectionStart - 1) + 1;
+			if (firstLineStart < 0) firstLineStart = 0;
+
+			// Find end of last line in selection
+			var lastLineEnd = text.IndexOf('\n', selectionEnd);
+			if (lastLineEnd < 0) lastLineEnd = text.Length;
+
+			var selectedLines = text.Substring(firstLineStart, lastLineEnd - firstLineStart);
+			var lines = selectedLines.Split('\n');
+			var modifiedLines = lines.Select(line => prefix + line);
+			var newSelected = string.Join("\n", modifiedLines);
+
+			var newText = text.Substring(0, firstLineStart) + newSelected + text.Substring(lastLineEnd);
+			_editorTextBox.Text = newText;
+			_editorTextBox.CaretIndex = firstLineStart + newSelected.Length;
+		}
+		else
+		{
+			// Just the current line
+			var currentLine = text.Substring(lineStart, (_editorTextBox.Text?.IndexOf('\n', lineStart) ?? _editorTextBox.Text?.Length ?? 0) - lineStart);
+			var newLine = prefix + currentLine;
+			var newText = text.Substring(0, lineStart) + newLine + text.Substring(lineStart + currentLine.Length);
+			_editorTextBox.Text = newText;
+			_editorTextBox.CaretIndex = cursorPos + prefix.Length;
+		}
+	}
+
+	private void OnKeyDown(object? sender, KeyEventArgs e)
+	{
+		if (DataContext is not NoteEditorViewModel vm) return;
+
+		// Ctrl+Z for Undo
+		if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.Z)
+		{
+			vm.UndoCommand.Execute(null);
+			e.Handled = true;
+		}
+		// Ctrl+Y for Redo
+		else if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.Y)
+		{
+			vm.RedoCommand.Execute(null);
+			e.Handled = true;
+		}
+		// Ctrl+B for Bold
+		else if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.B)
+		{
+			WrapSelectedText("**", "**");
+			e.Handled = true;
+		}
+		// Ctrl+I for Italic
+		else if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.I)
+		{
+			WrapSelectedText("*", "*");
+			e.Handled = true;
+		}
+		// Ctrl+H for Find & Replace
+		else if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.H)
+		{
+			vm.ShowFindReplacePanelCommand.Execute(null);
+			e.Handled = true;
+		}
+		// Ctrl+F for Find (if we had a simple find-only mode, but H opens both)
+		else if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.F)
+		{
+			vm.ShowFindReplacePanelCommand.Execute(null);
+			e.Handled = true;
+		}
+		// Ctrl+Shift+W for Word Wrap
+		else if (e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift) && e.Key == Key.W)
+		{
+			vm.ToggleWordWrapCommand.Execute(null);
+			e.Handled = true;
+		}
+		// Ctrl+Shift+P for Preview toggle
+		else if (e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift) && e.Key == Key.P)
+		{
+			vm.IsPreviewVisible = !vm.IsPreviewVisible;
+			UpdatePreviewVisibility();
+			e.Handled = true;
+		}
+		// Ctrl+Shift+L for Line Numbers
+		else if (e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift) && e.Key == Key.L)
+		{
+			vm.ToggleLineNumbersCommand.Execute(null);
+			e.Handled = true;
+		}
+	}
+
+	private void OnToolbarButtonClick(Button button)
+	{
+		if (_editorTextBox == null) return;
+
+		var toolTip = button.GetValue(ToolTip.TipProperty)?.ToString() ?? "";
+
+		// Code Block
+		if (toolTip.Contains("Code Block"))
+			AppendText("\n```\ncode block\n```\n");
+		// Link
+		else if (toolTip.Contains("Link"))
+			AppendText("[link text](url)");
+		// Image
+		else if (toolTip.Contains("Image"))
+			AppendText("![alt text](image-url)");
+		// Table
+		else if (toolTip.Contains("Table"))
+			AppendText("\n| Header 1 | Header 2 |\n| -------- | -------- |\n| Cell 1   | Cell 2   |");
+		// Horizontal Rule
+		else if (toolTip.Contains("Horizontal"))
+			AppendText("\n---\n");
+
+		_editorTextBox?.Focus();
+	}
+
+	private void AppendText(string text)
+	{
+		if (_editorTextBox == null) return;
+
+		var cursorPos = _editorTextBox.CaretIndex;
+		var currentText = _editorTextBox.Text ?? "";
+		_editorTextBox.Text = currentText.Substring(0, cursorPos) + text + currentText.Substring(cursorPos);
+		_editorTextBox.CaretIndex = cursorPos + text.Length;
 	}
 
 	private void PreviewToggle_Click(object? sender, RoutedEventArgs e)
@@ -2065,6 +2796,7 @@ public partial class NoteEditorView : UserControl
 		_previewPane.IsVisible = vm.IsPreviewVisible;
 	}
 }
+
 
 
 
@@ -2109,20 +2841,21 @@ public partial class NoteEditorView : UserControl
                    Width="120"/>
       </StackPanel>
 
-      <!-- AutoSave -->
-      <StackPanel Orientation="Horizontal" Spacing="12">
-        <CheckBox Content="Auto Save" 
-                  IsChecked="{Binding AutoSave}" 
-                  Foreground="{StaticResource Brush.TextPrimary}" 
-                  VerticalAlignment="Center"/>
-        <TextBlock Text="Interval (min):" 
-                   VerticalAlignment="Center" 
-                   Foreground="{StaticResource Brush.TextPrimary}"/>
-        <NumericUpDown Minimum="1" Maximum="60" 
-                Value="{Binding AutoSaveInterval}" 
-                Width="120"
-                IsReadOnly="False"/>
-      </StackPanel>
+        <!-- AutoSave -->
+        <StackPanel Orientation="Horizontal" Spacing="12">
+            <CheckBox Content="Auto Save"
+                      IsChecked="{Binding AutoSave}"
+                      Foreground="{StaticResource Brush.TextPrimary}"
+                      VerticalAlignment="Center"/>
+            <TextBlock Text="Interval (min):"
+                       VerticalAlignment="Center"
+                       Foreground="{StaticResource Brush.TextPrimary}"/>
+            <NumericUpDown Minimum="1" Maximum="60"
+                           Value="{Binding AutoSaveInterval}"
+                           Width="120"
+                           IsReadOnly="False"
+                           IsEnabled="{Binding AutoSave}"/>
+        </StackPanel>
 
       <!-- Confirm Delete -->
       <CheckBox Content="Confirm Before Delete" 
@@ -2151,12 +2884,12 @@ public partial class NoteEditorView : UserControl
                 Margin="8,0,0,0"/>
     </StackPanel>
 
-      <!-- Buttons -->
-      <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,20,0,0">
-        <Button Classes="accent" Command="{Binding SaveSettingsCommand}" MinWidth="80">Save</Button>
-        <Button Classes="danger" Command="{Binding ResetDefaultsCommand}" MinWidth="120">Reset Defaults</Button>
-        <Button Classes="ghost" Command="{Binding GoBackCommand}" MinWidth="80">Cancel</Button>
-      </StackPanel>
+    <!-- Buttons -->
+    <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,20,0,0">
+        <Button Classes="accent" Command="{Binding SaveSettingsCommand}" MinWidth="120" MinHeight="50">Save</Button>
+        <Button Classes="danger" Command="{Binding ResetDefaultsCommand}" MinWidth="120" MinHeight="50">Reset Defaults</Button>
+        <Button Classes="ghost" Command="{Binding GoBackCommand}" MinWidth="120" MinHeight="50">Cancel</Button>
+    </StackPanel>
 
       <!-- Status Message -->
       <TextBlock Text="{Binding StatusMessage}" 
@@ -2222,7 +2955,7 @@ public partial class SettingsView : UserControl
       <DockPanel>
         <Button DockPanel.Dock="Right" Classes="accent" Command="{Binding ShowCreateBoardCommand}" Margin="12,0,0,0">
           <StackPanel Orientation="Horizontal" Spacing="6">
-            <TextBlock Text="New Board" VerticalAlignment="Center"/>
+            <TextBlock Text="New Board" VerticalAlignment="Center" MinHeight="40" TextAlignment="Center"/>
           </StackPanel>
         </Button>
         <TextBox Watermark="Search boards..." Text="{Binding SearchText, Mode=TwoWay}"
@@ -2235,7 +2968,7 @@ public partial class SettingsView : UserControl
           <TextBlock Text="Create New Board" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Brush.TextPrimary}" />
           <TextBox Watermark="Board name..." Text="{Binding NewBoardName, Mode=TwoWay}" Padding="12,10" CornerRadius="6"/>
           <StackPanel Orientation="Horizontal" Spacing="8">
-            <Button Classes="accent" Command="{Binding CreateBoardCommand}" Content="Create"/>
+            <Button Classes="accent" Command="{Binding CreateBoardCommand}" Content="Create" MinHeight="40"/>
             <Button Classes="ghost" Command="{Binding CancelCreateBoardCommand}" Content="Cancel"/>
           </StackPanel>
         </StackPanel>

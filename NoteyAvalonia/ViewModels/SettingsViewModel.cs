@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -17,8 +17,6 @@ public partial class SettingsViewModel : ViewModelBase
 
 	[ObservableProperty] private string _statusMessage = "";
 	[ObservableProperty] private string _selectedTheme;
-	[ObservableProperty] private string _selectedFont;
-	[ObservableProperty] private double _fontSize;
 	[ObservableProperty] private bool _autoSave;
 	[ObservableProperty] private int _autoSaveInterval;
 	[ObservableProperty] private bool _confirmBeforeDelete;
@@ -26,7 +24,6 @@ public partial class SettingsViewModel : ViewModelBase
 	[ObservableProperty] private string _dataFolderPath;
 
 	public List<string> Themes { get; } = new() { "Dark", "Light", "System" };
-	public List<string> Fonts { get; } = new() { "Inter", "Roboto", "Segoe UI", "Arial" };
 
 	public SettingsViewModel(DataService dataService, NavigationService navigation)
 	{
@@ -42,8 +39,6 @@ public partial class SettingsViewModel : ViewModelBase
 	private void LoadFromModel(AppSettings settings)
 	{
 		SelectedTheme = settings.Theme;
-		SelectedFont = settings.FontFamily;
-		FontSize = settings.FontSize;
 		AutoSave = settings.AutoSave;
 		AutoSaveInterval = settings.AutoSaveInterval;
 		ConfirmBeforeDelete = settings.ConfirmBeforeDelete;
@@ -57,8 +52,8 @@ public partial class SettingsViewModel : ViewModelBase
 		var settings = new AppSettings
 		{
 			Theme = SelectedTheme,
-			FontFamily = SelectedFont,
-			FontSize = (int)FontSize,
+			FontFamily = "Inter", // Keep for backward compatibility but fixed
+			FontSize = 15, // Fixed at 15
 			AutoSave = AutoSave,
 			AutoSaveInterval = AutoSaveInterval,
 			ConfirmBeforeDelete = ConfirmBeforeDelete,
@@ -81,7 +76,12 @@ public partial class SettingsViewModel : ViewModelBase
 	[RelayCommand]
 	private void ResetDefaults()
 	{
-		var defaults = new AppSettings { AutoSaveInterval = 2 };
+		var defaults = new AppSettings 
+		{ 
+			AutoSaveInterval = 2,
+			FontSize = 15,
+			FontFamily = "Inter"
+		};
 		LoadFromModel(defaults);
 		StatusMessage = "Reset to default values.";
 	}
@@ -107,22 +107,13 @@ public partial class SettingsViewModel : ViewModelBase
 			}
 		}
 	}
-	partial void OnSelectedFontChanged(string value)
-	{
-		ApplyFontSettings();
-	}
-
-	partial void OnFontSizeChanged(double value)
-	{
-		ApplyFontSettings();
-	}
 
 	private void ApplyFontSettings()
 	{
 		if (Application.Current != null)
 		{
-			Application.Current.Resources["AppFontFamily"] = new Avalonia.Media.FontFamily(SelectedFont);
-			Application.Current.Resources["AppFontSize"] = FontSize;
+			Application.Current.Resources["AppFontFamily"] = new Avalonia.Media.FontFamily("Inter");
+			Application.Current.Resources["AppFontSize"] = 15.0; // Fixed at 15
 		}
 	}
 }

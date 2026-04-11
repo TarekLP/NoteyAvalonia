@@ -1,13 +1,15 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Interactivity;
+using Avalonia.Markup.Xaml;
 using NoteToolAvalonia.Models;
 using NoteToolAvalonia.ViewModels;
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace NoteToolAvalonia.Views;
 
@@ -18,6 +20,8 @@ public partial class BoardView : UserControl
 	private NoteCard? _pendingDragCard;
 	private Popup? _dragVisualPopup;
 	private Border? _dragVisualContent;
+	private DateTime _lastClickTime;
+	private NoteCard? _lastClickedCard;
 
 	public BoardView()
 	{
@@ -26,9 +30,11 @@ public partial class BoardView : UserControl
 		AddHandler(DragDrop.DropEvent, Column_Drop, handledEventsToo: true);
 	}
 
-	// ========================
-	// CONTEXT MENU HELPERS
-	// ========================
+	private void InitializeComponent()
+	{
+		AvaloniaXamlLoader.Load(this);
+	}
+
 
 	private NoteCard? GetCardFromSender(object? sender)
 	{
@@ -46,7 +52,16 @@ public partial class BoardView : UserControl
 
 		card.Priority = priority;
 		card.LastModified = DateTime.Now;
-		vm.Save(); // Use the Save method from the ViewModel
+		vm.Save();
+		
+		// Brief visual feedback
+		ShowPriorityFeedback(priority);
+	}
+
+	private void ShowPriorityFeedback(NotePriority priority)
+	{
+		// Flash animation feedback could go here
+		// For now, the color change provides instant feedback
 	}
 
 	private void Priority_None_Click(object? sender, RoutedEventArgs e)
@@ -65,7 +80,7 @@ public partial class BoardView : UserControl
 		=> SetPriority(sender, NotePriority.Critical);
 
 	// ========================
-	// DRAG & DROP LOGIC (unchanged)
+	// DRAG & DROP LOGIC
 	// ========================
 
 	private void NoteCard_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -77,6 +92,23 @@ public partial class BoardView : UserControl
 			_isPressed = true;
 			_pressPosition = e.GetPosition(this);
 			_pendingDragCard = card;
+
+			// Detect double-click
+			var now = DateTime.Now;
+			if (card == _lastClickedCard && (now - _lastClickTime).TotalMilliseconds < 300)
+			{
+				if (DataContext is BoardViewModel vm)
+				{
+					vm.OpenCardCommand.Execute(card);
+					e.Handled = true;
+				}
+				_lastClickedCard = null;
+			}
+			else
+			{
+				_lastClickedCard = card;
+				_lastClickTime = now;
+			}
 		}
 	}
 
@@ -89,7 +121,7 @@ public partial class BoardView : UserControl
 			Math.Pow(currentPos.X - _pressPosition.X, 2) +
 			Math.Pow(currentPos.Y - _pressPosition.Y, 2));
 
-		if (distance > 5)
+		if (distance > 8) // Slightly higher threshold for better UX
 		{
 			_isPressed = false;
 			var draggedCard = _pendingDragCard;
@@ -127,23 +159,40 @@ public partial class BoardView : UserControl
 	{
 		_dragVisualContent = new Border
 		{
-			Background = new SolidColorBrush(Color.Parse("#3A3A3D")),
-			CornerRadius = new CornerRadius(6),
-			Padding = new Thickness(8),
+			Background = new SolidColorBrush(Color.Parse("#2d2d30")),
+			CornerRadius = new CornerRadius(8),
+			Padding = new Thickness(12),
 			Width = 240,
-			MaxHeight = 100,
-			Opacity = 0.9,
+			MaxHeight = 120,
+			Opacity = 0.95,
+			BoxShadow = new BoxShadows(new BoxShadow
+			{
+				Color = Color.Parse("#00000060"),
+				Blur = 12,
+				OffsetX = 0,
+				OffsetY = 4,
+				Spread = 0
+			}),
 			Child = new StackPanel
 			{
+				Spacing = 8,
 				Children =
 				{
 					new TextBlock
 					{
 						Text = card.Title,
-						Foreground = new SolidColorBrush(Color.Parse("#DDD")),
+						Foreground = new SolidColorBrush(Color.Parse("#FFFFFF")),
 						TextWrapping = TextWrapping.Wrap,
 						MaxLines = 2,
-						TextTrimming = TextTrimming.CharacterEllipsis
+						TextTrimming = TextTrimming.CharacterEllipsis,
+						FontSize = 13,
+						FontWeight = FontWeight.SemiBold
+					},
+					new TextBlock
+					{
+						Text = card.Priority.ToString(),
+						Foreground = new SolidColorBrush(Color.Parse("#888888")),
+						FontSize = 11
 					}
 				}
 			}
@@ -182,8 +231,8 @@ public partial class BoardView : UserControl
 		if (_dragVisualPopup != null)
 		{
 			var screenPos = this.PointToScreen(e.GetPosition(this));
-			_dragVisualPopup.HorizontalOffset = screenPos.X + 10;
-			_dragVisualPopup.VerticalOffset = screenPos.Y + 10;
+			_dragVisualPopup.HorizontalOffset = screenPos.X + 12;
+			_dragVisualPopup.VerticalOffset = screenPos.Y + 12;
 		}
 	}
 
@@ -192,10 +241,30 @@ public partial class BoardView : UserControl
 		e.DragEffects = e.Data.Contains("NoteCard")
 			? DragDropEffects.Move
 			: DragDropEffects.None;
+		
+		// Optional: Add visual feedback to the target column
+		if (e.Source is Control control)
+		{
+			var border = FindParentOfType<Border>(control, "ColumnBorder");
+			if (border != null)
+			{
+				border.Opacity = 0.8;
+			}
+		}
 	}
 
 	private void Column_Drop(object? sender, DragEventArgs e)
 	{
+		// Reset opacity
+		if (e.Source is Control control)
+		{
+			var border = FindParentOfType<Border>(control, "ColumnBorder");
+			if (border != null)
+			{
+				border.Opacity = 1.0;
+			}
+		}
+
 		if (!e.Data.Contains("NoteCard") ||
 			e.Data.Get("NoteCard") is not NoteCard draggedCard)
 			return;
@@ -212,5 +281,16 @@ public partial class BoardView : UserControl
 			}
 			current = current.Parent as Control;
 		}
+	}
+
+	private T? FindParentOfType<T>(Control? control, string? name = null) where T : Control
+	{
+		while (control != null)
+		{
+			if (control is T typed && (name == null || (control is Border b && b.Name == name)))
+				return typed;
+			control = control.Parent as Control;
+		}
+		return null;
 	}
 }

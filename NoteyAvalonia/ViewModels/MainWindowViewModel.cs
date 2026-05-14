@@ -82,6 +82,12 @@ public partial class MainWindowViewModel : ViewModelBase
 		CurrentView = new SettingsViewModel(DataService, _navigation);
 		Title = "Notey - Settings";
 	}
+
+	public void NavigateToCredits()
+	{
+		CurrentView = new CreditsViewModel();
+		Title = "Notey - Credits";
+	}
 	public class BoolToDoubleConverter : IValueConverter
 	{
 		public double TrueValue { get; set; }
@@ -104,6 +110,9 @@ public partial class MainWindowViewModel : ViewModelBase
 
 	[RelayCommand]
 	private void GoSettings() => NavigateToSettings();
+	
+	[RelayCommand]
+	private void GoCredits() => NavigateToCredits();
 
 	[RelayCommand]
 	private void ToggleSidebar() => IsSidebarVisible = !IsSidebarVisible;

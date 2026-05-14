@@ -15,7 +15,6 @@ public class NoteCard
 {
     public string Id { get; set; } = Guid.NewGuid().ToString();
     public string Title { get; set; } = "New Note";
-    public string Content { get; set; } = string.Empty;
     public NotePriority Priority { get; set; } = NotePriority.None;
     public string Tags { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; } = DateTime.Now;

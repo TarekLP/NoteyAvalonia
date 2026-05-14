@@ -99,7 +99,7 @@ public partial class NoteEditorViewModel : ViewModelBase
 		_editHistory = new EditHistoryService(maxUndoSteps: 50, maxRevisions: 100);
 
 		_noteTitle = card.Title;
-		_noteContent = card.Content;
+		_noteContent = _dataService.NoteFiles.LoadNote(card.Id);
 		_selectedPriority = card.Priority;
 		_tags = card.Tags;
 		_createdAt = card.CreatedAt;
@@ -215,14 +215,15 @@ public partial class NoteEditorViewModel : ViewModelBase
 	private void AutoSave()
 	{
 		_card.Title = string.IsNullOrWhiteSpace(NoteTitle) ? "Untitled Note" : NoteTitle;
-		_card.Content = NoteContent ?? string.Empty;
 		_card.Priority = SelectedPriority;
 		_card.Tags = Tags ?? string.Empty;
 		_card.LastModified = DateTime.Now;
 		LastModified = _card.LastModified;
 
+
 		_dataService.SaveBoard(_board);
 		_editHistory.Push(NoteContent, 0); // Track for undo history
+		_dataService.NoteFiles.SaveNote(_card.Id, NoteContent ?? string.Empty);
 		UpdateUndoRedoCount();
 
 		HasUnsavedChanges = false;
@@ -238,13 +239,13 @@ public partial class NoteEditorViewModel : ViewModelBase
 	private void Save()
 	{
 		_card.Title = string.IsNullOrWhiteSpace(NoteTitle) ? "Untitled Note" : NoteTitle;
-		_card.Content = NoteContent ?? string.Empty;
 		_card.Priority = SelectedPriority;
 		_card.Tags = Tags ?? string.Empty;
 		_card.LastModified = DateTime.Now;
 		LastModified = _card.LastModified;
 
 		_dataService.SaveBoard(_board);
+		_dataService.NoteFiles.SaveNote(_card.Id, NoteContent ?? string.Empty);
 		HasUnsavedChanges = false;
 		StatusMessage = "Saved!";
 
@@ -305,6 +306,7 @@ public partial class NoteEditorViewModel : ViewModelBase
 			if (toRemove != null) { col.Cards.Remove(toRemove); break; }
 		}
 		_dataService.SaveBoard(_board);
+		_dataService.NoteFiles.DeleteNote(_card.Id);
 		_navigation.NavigateToBoard(_board);
 	}
 

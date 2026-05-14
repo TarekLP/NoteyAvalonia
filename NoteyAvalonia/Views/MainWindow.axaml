@@ -76,6 +76,20 @@
             </StackPanel>
           </Button>
 
+          <Button Classes="sidebar-btn" Command="{Binding GoCreditsCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="14">
+              <Border Width="24" Height="24" CornerRadius="4" Background="#2a2a2e">
+                <TextBlock Text="♥" FontSize="16" 
+                           Foreground="{StaticResource Brush.Accent}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
+              </Border>
+              <TextBlock Text="Credits" 
+                         VerticalAlignment="Center"
+                         FontSize="14"/>
+            </StackPanel>
+          </Button>
+
         </StackPanel>
 
         <!-- Footer -->
@@ -117,25 +131,25 @@
       </Button>
     </Border>
 
-    <!-- Content Area -->
-    <Border Padding="0">
-      <ContentControl Content="{Binding CurrentView}">
-        <ContentControl.DataTemplates>
-          <DataTemplate DataType="{x:Type vm:WelcomeViewModel}">
-            <views:WelcomeView />
-          </DataTemplate>
-          <DataTemplate DataType="{x:Type vm:BoardViewModel}">
-            <views:BoardView />
-          </DataTemplate>
-          <DataTemplate DataType="{x:Type vm:NoteEditorViewModel}">
-            <views:NoteEditorView />
-          </DataTemplate>
-          <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
-            <views:SettingsView />
-          </DataTemplate>
-        </ContentControl.DataTemplates>
-      </ContentControl>
-    </Border>
+    <ContentControl Content="{Binding CurrentView}">
+      <ContentControl.DataTemplates>
+        <DataTemplate DataType="{x:Type vm:WelcomeViewModel}">
+          <views:WelcomeView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:BoardViewModel}">
+          <views:BoardView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:NoteEditorViewModel}">
+          <views:NoteEditorView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+          <views:SettingsView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:CreditsViewModel}">
+          <views:CreditsView />
+        </DataTemplate>
+      </ContentControl.DataTemplates>
+    </ContentControl>
 
   </DockPanel>
 </Window>

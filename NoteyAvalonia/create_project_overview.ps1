@@ -38,4 +38,4 @@ foreach ($folderName in $targetFolders) {
     }
 }
 
-Write-Host "`nDone! Your code is ready in: $outputFile" -ForegroundColor MediumPurple
+Write-Host "`nDone! Your code is ready in: $outputFile" -ForegroundColor DarkMagenta

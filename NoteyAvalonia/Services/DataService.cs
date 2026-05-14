@@ -1,9 +1,10 @@
+using NoteToolAvalonia.Models;
+using NoteToolAvalonia.Services;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Threading;
-using NoteToolAvalonia.Models;
 
 namespace NoteToolAvalonia.Services;
 
@@ -12,6 +13,7 @@ public class DataService
 	private readonly string _dataFolder;
 	private readonly string _boardsFile;
 	private readonly string _settingsFile;
+	private readonly NoteFileService _noteFileService;
 	private readonly JsonSerializerOptions _jsonOptions;
 	private readonly object _fileLock = new object();
 	private const int MaxRetries = 3;
@@ -25,6 +27,7 @@ public class DataService
 		Directory.CreateDirectory(_dataFolder);
 		_boardsFile = Path.Combine(_dataFolder, "boards.json");
 		_settingsFile = Path.Combine(_dataFolder, "settings.json");
+		_noteFileService = new NoteFileService(_dataFolder);
 		_jsonOptions = new JsonSerializerOptions
 		{
 			WriteIndented = true,
@@ -130,4 +133,9 @@ public class DataService
 	}
 
 	public string DataFolder => _dataFolder;
+	public NoteFileService NoteFiles => _noteFileService;
+
+
+	public void DeleteNoteContent(string noteId) =>
+	_noteFileService.DeleteNote(noteId);
 }

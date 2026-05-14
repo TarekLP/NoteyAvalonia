@@ -4,242 +4,113 @@
              x:Class="NoteToolAvalonia.Views.SettingsView"
              x:DataType="vm:SettingsViewModel">
 
-  <ScrollViewer>
-    <StackPanel Spacing="0">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel MaxWidth="600" Spacing="40" Margin="40,60">
       
-      <!-- Header Section -->
-      <Border Background="{StaticResource Brush.Surface}" Padding="40,48,40,40" BorderBrush="#3e3e42" BorderThickness="0,0,0,1">
-        <StackPanel Spacing="8">
-          <TextBlock Text="Settings" 
-                     FontSize="32" 
-                     FontWeight="Bold" 
-                     Foreground="{StaticResource Brush.TextPrimary}"/>
-          <TextBlock Text="Customize your Notey experience" 
-                     FontSize="14"
-                     Foreground="{StaticResource Brush.TextSecondary}"/>
+      <StackPanel Spacing="12" HorizontalAlignment="Center">
+        <TextBlock Text="Settings" 
+                   FontSize="32" 
+                   FontWeight="Bold" 
+                   Foreground="{StaticResource Brush.Accent}"
+                   HorizontalAlignment="Center"/>
+        <TextBlock Text="Customize your Notey experience" 
+                   FontSize="14"
+                   Foreground="{StaticResource Brush.TextSecondary}"
+                   HorizontalAlignment="Center"/>
+      </StackPanel>
+
+      <Separator Background="{StaticResource Brush.Border}" Height="1"/>
+
+      <StackPanel Spacing="24">
+        <TextBlock Text="Appearance" FontSize="18" FontWeight="Bold" Foreground="{StaticResource Brush.TextPrimary}"/>
+        
+        <StackPanel Spacing="16">
+          <TextBlock Text="Theme" FontSize="14" Foreground="{StaticResource Brush.TextSecondary}"/>
+          <ComboBox ItemsSource="{Binding Themes}" 
+                    SelectedItem="{Binding SelectedTheme, Mode=TwoWay}"
+                    HorizontalAlignment="Stretch"/>
         </StackPanel>
-      </Border>
+      </StackPanel>
 
-      <!-- Content Sections -->
-      <StackPanel Margin="40,40,40,40" Spacing="48">
+      <StackPanel Spacing="24">
+        <TextBlock Text="Behavior" FontSize="18" FontWeight="Bold" Foreground="{StaticResource Brush.TextPrimary}"/>
 
-        <!-- Theme Section -->
-        <StackPanel Spacing="20">
-          <StackPanel Spacing="8">
-            <TextBlock Text="Appearance" 
-                       FontSize="16" 
-                       FontWeight="SemiBold"
-                       Foreground="{StaticResource Brush.TextPrimary}"/>
-            <TextBlock Text="Control how Notey looks and feels"
-                       FontSize="12"
-                       Foreground="{StaticResource Brush.TextSecondary}"/>
+        <Grid ColumnDefinitions="*, Auto">
+          <StackPanel Spacing="4">
+            <TextBlock Text="Auto-save" FontWeight="SemiBold" Foreground="{StaticResource Brush.TextPrimary}"/>
+            <TextBlock Text="Automatically save changes to your notes" FontSize="12" Foreground="{StaticResource Brush.TextSecondary}"/>
           </StackPanel>
-          
-          <!-- Theme Selection -->
-          <Border Background="{StaticResource Brush.SurfaceAlt}" 
-                  CornerRadius="12" 
-                  Padding="24" 
-                  BorderBrush="{StaticResource Brush.Border}"
-                  BorderThickness="1">
-            <StackPanel Spacing="16">
-              <TextBlock Text="Theme" 
-                         FontSize="13" 
-                         FontWeight="SemiBold"
-                         Foreground="{StaticResource Brush.TextPrimary}"/>
-              <ComboBox ItemsSource="{Binding Themes}" 
-                        SelectedItem="{Binding SelectedTheme, Mode=TwoWay}"
-                        Width="200"/>
-            </StackPanel>
-          </Border>
+          <ToggleSwitch Grid.Column="1" IsChecked="{Binding AutoSave}" OnContent="" OffContent=""/>
+        </Grid>
+
+        <StackPanel Spacing="8" IsVisible="{Binding AutoSave}">
+          <TextBlock Text="Save Interval (minutes)" FontSize="14" Foreground="{StaticResource Brush.TextSecondary}"/>
+          <NumericUpDown Minimum="1" Maximum="60" Value="{Binding AutoSaveInterval}"/>
         </StackPanel>
 
-        <!-- Behavior Section -->
-        <StackPanel Spacing="20">
-          <StackPanel Spacing="8">
-            <TextBlock Text="Behavior" 
-                       FontSize="16" 
-                       FontWeight="SemiBold"
-                       Foreground="{StaticResource Brush.TextPrimary}"/>
-            <TextBlock Text="Adjust how the app behaves and saves your work"
-                       FontSize="12"
-                       Foreground="{StaticResource Brush.TextSecondary}"/>
+        <Grid ColumnDefinitions="*, Auto">
+          <StackPanel Spacing="4">
+            <TextBlock Text="Confirm Before Delete" FontWeight="SemiBold" Foreground="{StaticResource Brush.TextPrimary}"/>
+            <TextBlock Text="Ask before permanently deleting items" FontSize="12" Foreground="{StaticResource Brush.TextSecondary}"/>
           </StackPanel>
-
-          <!-- Auto-save Setting -->
-          <Border Background="{StaticResource Brush.SurfaceAlt}" 
-                  CornerRadius="12" 
-                  Padding="24" 
-                  BorderBrush="{StaticResource Brush.Border}"
-                  BorderThickness="1">
-            <StackPanel Spacing="16">
-              <DockPanel>
-                <CheckBox DockPanel.Dock="Left"
-                          IsChecked="{Binding AutoSave}"
-                          Margin="0,0,16,0"
-                          VerticalAlignment="Center"/>
-                <StackPanel DockPanel.Dock="Left" Spacing="4">
-                  <TextBlock Text="Auto-save" 
-                             FontSize="13" 
-                             FontWeight="SemiBold"
-                             Foreground="{StaticResource Brush.TextPrimary}"/>
-                  <TextBlock Text="Automatically save changes to your notes"
-                             FontSize="11"
-                             Foreground="{StaticResource Brush.TextSecondary}"/>
-                </StackPanel>
-              </DockPanel>
-
-              <Border Height="1" Background="{StaticResource Brush.Border}"/>
-
-              <DockPanel IsEnabled="{Binding AutoSave}">
-                <TextBlock DockPanel.Dock="Left" 
-                           Text="Interval:" 
-                           VerticalAlignment="Center"
-                           Foreground="{StaticResource Brush.TextPrimary}"
-                           Width="80"/>
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8">
-                  <NumericUpDown Minimum="1" Maximum="60"
-                                 Value="{Binding AutoSaveInterval}"
-                                 Width="120"
-                                 IsEnabled="{Binding AutoSave}"/>
-                  <TextBlock Text="minutes"
-                             VerticalAlignment="Center"
-                             Foreground="{StaticResource Brush.TextSecondary}"/>
-                </StackPanel>
-              </DockPanel>
-            </StackPanel>
-          </Border>
-
-          <!-- Delete Confirmation -->
-          <Border Background="{StaticResource Brush.SurfaceAlt}" 
-                  CornerRadius="12" 
-                  Padding="24" 
-                  BorderBrush="{StaticResource Brush.Border}"
-                  BorderThickness="1">
-            <DockPanel>
-              <CheckBox DockPanel.Dock="Left"
-                        IsChecked="{Binding ConfirmBeforeDelete}"
-                        Margin="0,0,16,0"
-                        VerticalAlignment="Center"/>
-              <StackPanel DockPanel.Dock="Left" Spacing="4">
-                <TextBlock Text="Confirm Before Delete" 
-                           FontSize="13" 
-                           FontWeight="SemiBold"
-                           Foreground="{StaticResource Brush.TextPrimary}"/>
-                <TextBlock Text="Ask for confirmation before permanently deleting boards or notes"
-                           FontSize="11"
-                           Foreground="{StaticResource Brush.TextSecondary}"/>
-              </StackPanel>
-            </DockPanel>
-          </Border>
-
-          <!-- Show Completed -->
-          <Border Background="{StaticResource Brush.SurfaceAlt}" 
-                  CornerRadius="12" 
-                  Padding="24" 
-                  BorderBrush="{StaticResource Brush.Border}"
-                  BorderThickness="1">
-            <DockPanel>
-              <CheckBox DockPanel.Dock="Left"
-                        IsChecked="{Binding ShowCompletedNotes}"
-                        Margin="0,0,16,0"
-                        VerticalAlignment="Center"/>
-              <StackPanel DockPanel.Dock="Left" Spacing="4">
-                <TextBlock Text="Show Completed Notes" 
-                           FontSize="13" 
-                           FontWeight="SemiBold"
-                           Foreground="{StaticResource Brush.TextPrimary}"/>
-                <TextBlock Text="Display notes marked as complete in your boards"
-                           FontSize="11"
-                           Foreground="{StaticResource Brush.TextSecondary}"/>
-              </StackPanel>
-            </DockPanel>
-          </Border>
-        </StackPanel>
-
-        <!-- Data Section -->
-        <StackPanel Spacing="20">
-          <StackPanel Spacing="8">
-            <TextBlock Text="Data" 
-                       FontSize="16" 
-                       FontWeight="SemiBold"
-                       Foreground="{StaticResource Brush.TextPrimary}"/>
-            <TextBlock Text="Manage where your notes are stored"
-                       FontSize="12"
-                       Foreground="{StaticResource Brush.TextSecondary}"/>
+          <ToggleSwitch Grid.Column="1" IsChecked="{Binding ConfirmBeforeDelete}" OnContent="" OffContent=""/>
+        </Grid>
+        
+        <Grid ColumnDefinitions="*, Auto">
+          <StackPanel Spacing="4">
+            <TextBlock Text="Show Completed Notes" FontWeight="SemiBold" Foreground="{StaticResource Brush.TextPrimary}"/>
+            <TextBlock Text="Display notes marked as complete in your boards" FontSize="12" Foreground="{StaticResource Brush.TextSecondary}"/>
           </StackPanel>
+          <ToggleSwitch Grid.Column="1" IsChecked="{Binding ShowCompletedNotes}" OnContent="" OffContent=""/>
+        </Grid>
+      </StackPanel>
 
-          <Border Background="{StaticResource Brush.SurfaceAlt}" 
-                  CornerRadius="12" 
-                  Padding="24" 
-                  BorderBrush="{StaticResource Brush.Border}"
-                  BorderThickness="1">
-            <StackPanel Spacing="12">
-              <TextBlock Text="Data Folder" 
-                         FontSize="13" 
-                         FontWeight="SemiBold"
-                         Foreground="{StaticResource Brush.TextPrimary}"/>
-              <TextBox Text="{Binding DataFolderPath}" 
-                       IsReadOnly="True" 
-                       Padding="12,10"
-                       CornerRadius="8"
-                       Background="{StaticResource Brush.Background}"
-                       BorderBrush="{StaticResource Brush.Border}"/>
-              <Button Content="Browse Folder" 
-                      Command="{Binding BrowseFolderCommand}"
-                      Classes="ghost"
-                      Padding="12,10"
-                      HorizontalAlignment="Left"/>
-            </StackPanel>
-          </Border>
+      <StackPanel Spacing="24">
+        <TextBlock Text="Data &amp; Storage" FontSize="18" FontWeight="Bold" Foreground="{StaticResource Brush.TextPrimary}"/>
+        
+        <StackPanel Spacing="16">
+          <TextBlock Text="Storage Location" FontSize="14" Foreground="{StaticResource Brush.TextSecondary}"/>
+          <ComboBox ItemsSource="{Binding StorageModes}" 
+                    SelectedItem="{Binding SelectedStorageMode, Mode=TwoWay}"
+                    HorizontalAlignment="Stretch"/>
         </StackPanel>
 
-        <!-- Actions Section -->
-        <StackPanel Spacing="16" Margin="0,32,0,0">
-          <Border Height="1" Background="{StaticResource Brush.Border}"/>
-          
-          <StackPanel Orientation="Horizontal" Spacing="12">
-            <Button Classes="accent" 
-                    Command="{Binding SaveSettingsCommand}" 
-                    Padding="24,12"
-                    FontSize="13"
-                    FontWeight="SemiBold">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="✓"/>
-                <TextBlock Text="Save Changes"/>
-              </StackPanel>
-            </Button>
-            
-            <Button Classes="ghost" 
-                    Command="{Binding ResetDefaultsCommand}"
-                    Padding="24,12"
-                    FontSize="13"
-                    FontWeight="SemiBold">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="↻"/>
-                <TextBlock Text="Reset to Defaults"/>
-              </StackPanel>
-            </Button>
-            
-            <Button Classes="ghost" 
-                    Command="{Binding GoBackCommand}"
-                    Padding="24,12"
-                    FontSize="13"
-                    FontWeight="SemiBold">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="←"/>
-                <TextBlock Text="Back"/>
-              </StackPanel>
-            </Button>
+        <StackPanel Spacing="12" IsVisible="{Binding IsCustomStorageSelected}">
+          <TextBlock Text="Custom Path" FontSize="14" Foreground="{StaticResource Brush.TextSecondary}"/>
+          <Grid ColumnDefinitions="*, Auto">
+            <TextBox Text="{Binding DataFolderPath}" 
+                     IsReadOnly="True" 
+                     Margin="0,0,10,0"
+                     Watermark="Select a folder..."/>
+            <Button Grid.Column="1" 
+                    Content="Browse" 
+                    Command="{Binding BrowseFolderCommand}" 
+                    Classes="accent"/>
+          </Grid>
+        </StackPanel>
+      </StackPanel>
+
+      <StackPanel Spacing="16" Margin="0,40,0,0">
+        <Button Classes="accent" 
+                Command="{Binding SaveSettingsCommand}" 
+                HorizontalAlignment="Stretch"
+                Height="45">
+          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+            <TextBlock Text="✓" VerticalAlignment="Center"/>
+            <TextBlock Text="Save and Apply Changes" VerticalAlignment="Center"/>
           </StackPanel>
-
-          <!-- Status Message -->
-          <TextBlock Text="{Binding StatusMessage}" 
-                     Foreground="{StaticResource Brush.Accent}" 
-                     FontWeight="SemiBold"
-                     FontSize="12"
-                     Margin="0,12,0,0"/>
-        </StackPanel>
-
+        </Button>
+        
+        <Grid ColumnDefinitions="*, *">
+          <Button Grid.Column="0" Content="Reset Defaults" Command="{Binding ResetDefaultsCommand}" Classes="ghost" Margin="0,0,5,0" HorizontalAlignment="Stretch"/>
+          <Button Grid.Column="1" Content="Back" Command="{Binding GoBackCommand}" Classes="ghost" Margin="5,0,0,0" HorizontalAlignment="Stretch"/>
+        </Grid>
+        
+        <TextBlock Text="{Binding StatusMessage}" 
+                   Foreground="{StaticResource Brush.Accent}" 
+                   HorizontalAlignment="Center"
+                   FontSize="12"
+                   Margin="0,10,0,0"/>
       </StackPanel>
 
     </StackPanel>

@@ -115,6 +115,7 @@ public partial class BoardViewModel : ViewModelBase
 			if (toRemove != null)
 			{
 				col.Cards.Remove(toRemove);
+				_dataService.NoteFiles.DeleteNote(card.Id);
 				break;
 			}
 		}

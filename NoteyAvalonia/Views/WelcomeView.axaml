@@ -7,14 +7,12 @@
   <ScrollViewer Padding="32,24">
     <StackPanel MaxWidth="900" Spacing="20">
 
-      <!-- Welcome Title -->
       <StackPanel Margin="0,10,0,20">
         <TextBlock Text="Welcome to Notey" Classes="section-title"/>
         <TextBlock Text="Organize and plan your next Project using this tool!"
                    Classes="subtitle" Margin="0,6,0,0"/>
       </StackPanel>
 
-      <!-- Stats Cards -->
       <WrapPanel Margin="0,0,0,8">
         <Border Classes="card" MinWidth="150">
           <StackPanel>
@@ -30,7 +28,6 @@
         </Border>
       </WrapPanel>
 
-      <!-- Search + New Board -->
       <DockPanel>
         <Button DockPanel.Dock="Right" Classes="accent" Command="{Binding ShowCreateBoardCommand}" Margin="12,0,0,0">
           <StackPanel Orientation="Horizontal" Spacing="6">
@@ -41,7 +38,6 @@
                  CornerRadius="6" Padding="12,10"/>
       </DockPanel>
 
-      <!-- Create Board Panel -->
       <Border Classes="card" IsVisible="{Binding IsCreatingBoard}">
         <StackPanel Spacing="12">
           <TextBlock Text="Create New Board" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Brush.TextPrimary}" />
@@ -53,10 +49,8 @@
         </StackPanel>
       </Border>
 
-      <!-- Boards Section -->
       <TextBlock Text="Your Boards" Classes="section-title" Margin="0,8,0,0"/>
 
-      <!-- No Boards Placeholder -->
       <Border Classes="card" IsVisible="{Binding !FilteredBoards.Count}" HorizontalAlignment="Center" Margin="0,30">
         <StackPanel HorizontalAlignment="Center" Spacing="8">
           <TextBlock Text="No boards yet" FontSize="18" Foreground="{StaticResource Brush.TextSecondary}" HorizontalAlignment="Center"/>
@@ -64,52 +58,46 @@
         </StackPanel>
       </Border>
 
-      <!-- Boards List -->
-<ItemsControl ItemsSource="{Binding FilteredBoards}">
-    <ItemsControl.ItemTemplate>
-        <DataTemplate>
+      <ItemsControl ItemsSource="{Binding FilteredBoards}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
             <Border Classes="card" Margin="0,0,0,4" Cursor="Hand">
-                <DockPanel>
-                    <Button DockPanel.Dock="Right"
-                            Classes="ghost"
-                            Command="{Binding $parent[ItemsControl].((vm:WelcomeViewModel)DataContext).DeleteBoardCommand}"
-                            CommandParameter="{Binding}"
-                            FontSize="16"
-                            ToolTip.Tip="Delete board"
-                            Content="🗑">
-                        <Button.Styles>
-                            <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                <Setter Property="Foreground" Value="{StaticResource Brush.Accent}"/>
-                            </Style>
-                        </Button.Styles>
-                    </Button>
+              <DockPanel>
+                <Button DockPanel.Dock="Right"
+                        Classes="ghost"
+                        Command="{ReflectionBinding DataContext.DeleteBoardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        CommandParameter="{Binding}"
+                        FontSize="16"
+                        ToolTip.Tip="Delete board"
+                        Content="🗑">
+                  <Button.Styles>
+                    <Style Selector="Button:pointerover /template/ ContentPresenter">
+                      <Setter Property="Foreground" Value="{StaticResource Brush.Accent}"/>
+                    </Style>
+                  </Button.Styles>
+                </Button>
 
-                    <Border Background="Transparent" Cursor="Hand" Tapped="BoardCard_Tapped">
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="{Binding Name}" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource Brush.TextPrimary}"/>
-                            <StackPanel Orientation="Horizontal" Spacing="16">
-                                <TextBlock Foreground="{StaticResource Brush.TextSecondary}" FontSize="12">
-                                    <TextBlock.Text>
-                                        <MultiBinding StringFormat=" {0} columns">
-                                            <Binding Path="Columns.Count"/>
-                                        </MultiBinding>
-                                    </TextBlock.Text>
-                                </TextBlock>
-                                <TextBlock Foreground="{StaticResource Brush.TextSecondary}" FontSize="12">
-                                    <TextBlock.Text>
-                                        <MultiBinding StringFormat="{} {0:MMM dd, yyyy}">
-                                            <Binding Path="LastModified"/>
-                                        </MultiBinding>
-                                    </TextBlock.Text>
-                                </TextBlock>
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
-                </DockPanel>
+                <Border Background="Transparent" Cursor="Hand" Tapped="BoardCard_Tapped">
+                  <StackPanel Spacing="6">
+                    <TextBlock Text="{Binding Name}" 
+                               FontSize="18" 
+                               FontWeight="SemiBold" 
+                               Foreground="{StaticResource Brush.TextPrimary}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="16">
+                      <TextBlock Text="{Binding Columns.Count, StringFormat='{}{0} columns'}" 
+                                 Foreground="{StaticResource Brush.TextSecondary}" 
+                                 FontSize="12"/>
+                      <TextBlock Text="{Binding LastModified, StringFormat='{}{0:MMM dd, yyyy}'}" 
+                                 Foreground="{StaticResource Brush.TextSecondary}" 
+                                 FontSize="12"/>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+              </DockPanel>
             </Border>
-        </DataTemplate>
-    </ItemsControl.ItemTemplate>
-</ItemsControl>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
 
     </StackPanel>
   </ScrollViewer>

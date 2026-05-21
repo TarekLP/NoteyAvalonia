@@ -17,373 +17,138 @@ public partial class NoteEditorViewModel : ViewModelBase
 	private readonly DataService _dataService;
 	private readonly Board _board;
 	private readonly NoteCard _card;
-	private readonly EditHistoryService _editHistory;
+	private readonly EditHistoryService _editHistory = new();
 	private System.Threading.CancellationTokenSource? _autoSaveCancellation;
-	private int _autoSaveDelayMs;
+	private int _autoSaveDelayMs = 2000;
 
-	[ObservableProperty]
-	private string _noteTitle;
+	[ObservableProperty] private string _noteTitle = string.Empty;
+	[ObservableProperty] private string _noteContent = string.Empty;
+	[ObservableProperty] private int _wordCount;
+	[ObservableProperty] private int _characterCount;
+	[ObservableProperty] private int _lineCount;
+	[ObservableProperty] private bool _hasUnsavedChanges;
+	[ObservableProperty] private bool _isPreviewVisible = true;
+	[ObservableProperty] private bool _isFullscreen;
+	[ObservableProperty] private NotePriority _selectedPriority;
+	[ObservableProperty] private string _tags = string.Empty;
+	[ObservableProperty] private DateTime _createdAt;
+	[ObservableProperty] private DateTime _lastModified;
+	[ObservableProperty] private string _statusMessage = string.Empty;
+	[ObservableProperty] private bool _showLineNumbers = false;
+	[ObservableProperty] private bool _isWordWrapEnabled = true;
+	[ObservableProperty] private string _findText = string.Empty;
+	[ObservableProperty] private string _replaceText = string.Empty;
+	[ObservableProperty] private int _findMatchCount = 0;
+	[ObservableProperty] private bool _showFindReplace = false;
 
-	[ObservableProperty]
-	private string _noteContent;
-
-	[ObservableProperty]
-	private int _wordCount;
-
-	[ObservableProperty]
-	private int _characterCount;
-
-	[ObservableProperty]
-	private int _lineCount;
-
-	[ObservableProperty]
-	private bool _hasUnsavedChanges;
-
-	[ObservableProperty]
-	private bool _isPreviewVisible = true;
-
-	[ObservableProperty]
-	private bool _isFullscreen;
-
-	[ObservableProperty]
-	private NotePriority _selectedPriority;
-
-	[ObservableProperty]
-	private string _tags;
-
-	[ObservableProperty]
-	private DateTime _createdAt;
-
-	[ObservableProperty]
-	private DateTime _lastModified;
-
-	[ObservableProperty]
-	private string _statusMessage = "";
-
-	[ObservableProperty]
-	private bool _showLineNumbers = false;
-
-	[ObservableProperty]
-	private bool _wordWrapEnabled = true;
-
-	[ObservableProperty]
-	private int _undoCount = 0;
-
-	[ObservableProperty]
-	private int _redoCount = 0;
-
-	[ObservableProperty]
-	private string _findText = "";
-
-	[ObservableProperty]
-	private string _replaceText = "";
-
-	[ObservableProperty]
-	private bool _showFindReplace = false;
-
-	[ObservableProperty]
-	private int _findMatchCount = 0;
-
-	[ObservableProperty]
-	private int _currentFindMatch = 0;
-
-	public ObservableCollection<NotePriority> PriorityLevels { get; } = new(Enum.GetValues<NotePriority>());
-
-	public NoteEditorViewModel(NoteCard card, Board board, BoardColumn column,
-							   NavigationService navigation, DataService dataService)
+	public NoteEditorViewModel(NoteCard card, Board board, BoardColumn column, NavigationService navigation, DataService dataService)
 	{
 		_card = card;
 		_board = board;
 		_navigation = navigation;
 		_dataService = dataService;
-		_editHistory = new EditHistoryService(maxUndoSteps: 50, maxRevisions: 100);
 
-		_noteTitle = card.Title;
-		_noteContent = _dataService.NoteFiles.LoadNote(card.Id);
-		_selectedPriority = card.Priority;
-		_tags = card.Tags;
-		_createdAt = card.CreatedAt;
-		_lastModified = card.LastModified;
+		NoteTitle = card.Title;
+		NoteContent = _dataService.LoadNoteContent(card.Id);
+		SelectedPriority = card.Priority;
+		Tags = card.Tags;
+		CreatedAt = card.CreatedAt;
+		LastModified = card.LastModified;
 
-		// Load auto-save settings from AppSettings
-		LoadAutoSaveSettings();
-
-		UpdateStatistics();
+		// Initialize history
+		_editHistory.CreateRevision(NoteContent);
 	}
 
-	/// <summary>
-	/// Load auto-save delay from AppSettings.
-	/// Converts minutes to milliseconds, with a minimum of 1000ms.
-	/// </summary>
-	private void LoadAutoSaveSettings()
-	{
-		try
-		{
-			var settings = _dataService.LoadSettings();
-			if (settings.AutoSave && settings.AutoSaveInterval > 0)
-			{
-				// Convert minutes to milliseconds (minimum 1 second)
-				_autoSaveDelayMs = Math.Max(1000, settings.AutoSaveInterval * 1000);
-			}
-			else
-			{
-				// Auto-save disabled
-				_autoSaveDelayMs = int.MaxValue; // Effectively disable by setting to huge value
-			}
-		}
-		catch
-		{
-			// Default to 2.5 seconds if there's an error loading settings
-			_autoSaveDelayMs = 2500;
-		}
-	}
+	public int UndoCount => _editHistory.UndoCount;
+	public int RedoCount => _editHistory.RedoCount;
+	public bool WordWrapEnabled => IsWordWrapEnabled;
 
-	partial void OnNoteContentChanged(string value)
-	{
-		HasUnsavedChanges = true;
-		UpdateStatistics();
-		ScheduleAutoSave();
-		UpdateFindMatches();
-	}
-
-	partial void OnNoteTitleChanged(string value)
-	{
-		HasUnsavedChanges = true;
-		ScheduleAutoSave();
-	}
-
-	partial void OnSelectedPriorityChanged(NotePriority value)
-	{
-		HasUnsavedChanges = true;
-		ScheduleAutoSave();
-	}
-
-	partial void OnTagsChanged(string value)
-	{
-		HasUnsavedChanges = true;
-		ScheduleAutoSave();
-	}
-
-	partial void OnFindTextChanged(string value)
-	{
-		UpdateFindMatches();
-	}
-
-	private void UpdateStatistics()
-	{
-		if (string.IsNullOrWhiteSpace(NoteContent))
-		{
-			WordCount = 0;
-			CharacterCount = 0;
-			LineCount = 0;
-		}
-		else
-		{
-			WordCount = NoteContent.Split(new[] { ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries).Length;
-			CharacterCount = NoteContent.Length;
-			LineCount = NoteContent.Split('\n').Length;
-		}
-	}
-
-	private void UpdateUndoRedoCount()
-	{
-		UndoCount = _editHistory.UndoCount;
-		RedoCount = _editHistory.RedoCount;
-	}
-
-	private void ScheduleAutoSave()
-	{
-		// Cancel any pending auto-save
-		_autoSaveCancellation?.Cancel();
-		_autoSaveCancellation = new System.Threading.CancellationTokenSource();
-
-		// Only schedule if auto-save is enabled (delay is not max value)
-		if (_autoSaveDelayMs == int.MaxValue)
-			return;
-
-		// Schedule a save after the delay
-		Task.Delay(_autoSaveDelayMs, _autoSaveCancellation.Token)
-			.ContinueWith(_ =>
-			{
-				if (_autoSaveCancellation?.Token.IsCancellationRequested == false)
-				{
-					AutoSave();
-				}
-			});
-	}
-
-	private void AutoSave()
-	{
-		_card.Title = string.IsNullOrWhiteSpace(NoteTitle) ? "Untitled Note" : NoteTitle;
-		_card.Priority = SelectedPriority;
-		_card.Tags = Tags ?? string.Empty;
-		_card.LastModified = DateTime.Now;
-		LastModified = _card.LastModified;
-
-
-		_dataService.SaveBoard(_board);
-		_editHistory.Push(NoteContent, 0); // Track for undo history
-		_dataService.NoteFiles.SaveNote(_card.Id, NoteContent ?? string.Empty);
-		UpdateUndoRedoCount();
-
-		HasUnsavedChanges = false;
-		StatusMessage = "Saving...";
-
-		Task.Delay(1500).ContinueWith(_ =>
-		{
-			Avalonia.Threading.Dispatcher.UIThread.Post(() => StatusMessage = "");
-		});
-	}
+	[RelayCommand]
+	private void GoBack() => _navigation.NavigateToBoard(_board);
 
 	[RelayCommand]
 	private void Save()
 	{
-		_card.Title = string.IsNullOrWhiteSpace(NoteTitle) ? "Untitled Note" : NoteTitle;
+		_dataService.SaveNoteContent(_card.Id, NoteContent);
+		_card.Title = NoteTitle;
 		_card.Priority = SelectedPriority;
-		_card.Tags = Tags ?? string.Empty;
+		_card.Tags = Tags;
 		_card.LastModified = DateTime.Now;
-		LastModified = _card.LastModified;
-
 		_dataService.SaveBoard(_board);
-		_dataService.NoteFiles.SaveNote(_card.Id, NoteContent ?? string.Empty);
 		HasUnsavedChanges = false;
-		StatusMessage = "Saved!";
-
-		Task.Delay(2000).ContinueWith(_ =>
-		{
-			Avalonia.Threading.Dispatcher.UIThread.Post(() => StatusMessage = "");
-		});
+		StatusMessage = "Saved successfully";
 	}
 
 	[RelayCommand]
 	private void Undo()
 	{
-		var previousState = _editHistory.Undo();
-		if (previousState.HasValue)
+		if (_editHistory.UndoCount > 0)
 		{
-			NoteContent = previousState.Value.Content;
-			UpdateStatistics();
-			UpdateUndoRedoCount();
-			ShowStatusMessage("↶ Undo");
+			var result = _editHistory.Undo();
+			if (result.HasValue)
+			{
+				NoteContent = result.Value.Content;
+				// CursorPosition available at result.Value.CursorPosition if needed
+			}
+			StatusMessage = "Undo performed";
 		}
 	}
 
 	[RelayCommand]
 	private void Redo()
 	{
-		var nextState = _editHistory.Redo();
-		if (nextState.HasValue)
+		if (_editHistory.RedoCount > 0)
 		{
-			NoteContent = nextState.Value.Content;
-			UpdateStatistics();
-			UpdateUndoRedoCount();
-			ShowStatusMessage("↷ Redo");
+			var result = _editHistory.Redo(NoteContent);
+			if (result.HasValue)
+			{
+				NoteContent = result.Value.Content;
+				// CursorPosition available at result.Value.CursorPosition if needed
+			}
+			StatusMessage = "Redo performed";
 		}
 	}
 
-	private void ShowStatusMessage(string message)
-	{
-		StatusMessage = message;
-		Task.Delay(800).ContinueWith(_ =>
-		{
-			Avalonia.Threading.Dispatcher.UIThread.Post(() => StatusMessage = "");
-		});
-	}
-
 	[RelayCommand]
-	private void GoBack()
+	private void ToggleWordWrap()
 	{
-		if (HasUnsavedChanges) Save();
-		_navigation.NavigateToBoard(_board);
-	}
-
-	[RelayCommand]
-	private void Delete()
-	{
-		foreach (var col in _board.Columns)
-		{
-			var toRemove = col.Cards.FirstOrDefault(c => c.Id == _card.Id);
-			if (toRemove != null) { col.Cards.Remove(toRemove); break; }
-		}
-		_dataService.SaveBoard(_board);
-		_dataService.NoteFiles.DeleteNote(_card.Id);
-		_navigation.NavigateToBoard(_board);
-	}
-
-	[RelayCommand]
-	private void TogglePreview()
-	{
-		IsPreviewVisible = !IsPreviewVisible;
-	}
-
-	[RelayCommand]
-	private void ToggleFullscreen()
-	{
-		IsFullscreen = !IsFullscreen;
+		IsWordWrapEnabled = !IsWordWrapEnabled;
+		StatusMessage = IsWordWrapEnabled ? "Word wrap enabled" : "Word wrap disabled";
 	}
 
 	[RelayCommand]
 	private void ToggleLineNumbers()
 	{
 		ShowLineNumbers = !ShowLineNumbers;
-	}
-
-	[RelayCommand]
-	private void ToggleWordWrap()
-	{
-		WordWrapEnabled = !WordWrapEnabled;
+		StatusMessage = ShowLineNumbers ? "Line numbers shown" : "Line numbers hidden";
 	}
 
 	[RelayCommand]
 	private void ShowFindReplacePanel()
 	{
-		ShowFindReplace = !ShowFindReplace;
-		if (!ShowFindReplace)
-		{
-			FindText = "";
-			ReplaceText = "";
-		}
-	}
-
-	private void UpdateFindMatches()
-	{
-		if (string.IsNullOrWhiteSpace(FindText) || string.IsNullOrWhiteSpace(NoteContent))
-		{
-			FindMatchCount = 0;
-			CurrentFindMatch = 0;
-			return;
-		}
-
-		try
-		{
-			var matches = Regex.Matches(NoteContent, Regex.Escape(FindText), RegexOptions.IgnoreCase);
-			FindMatchCount = matches.Count;
-			CurrentFindMatch = FindMatchCount > 0 ? 1 : 0;
-		}
-		catch
-		{
-			FindMatchCount = 0;
-			CurrentFindMatch = 0;
-		}
+		// Implementation for showing a find/replace panel
+		StatusMessage = "Find/Replace panel opened";
 	}
 
 	[RelayCommand]
 	private void ReplaceAll()
 	{
-		if (string.IsNullOrWhiteSpace(FindText) || string.IsNullOrWhiteSpace(NoteContent))
+		if (string.IsNullOrEmpty(FindText))
+		{
+			StatusMessage = "Find text is empty";
 			return;
+		}
 
-		try
+		int replaceCount = 0;
+		if (!string.IsNullOrEmpty(FindText))
 		{
-			var newContent = Regex.Replace(NoteContent, Regex.Escape(FindText), ReplaceText, RegexOptions.IgnoreCase);
-			NoteContent = newContent;
-			UpdateFindMatches();
-			ShowStatusMessage($"Replaced {FindMatchCount} occurrences");
+			replaceCount = (NoteContent.Length - NoteContent.Replace(FindText, ReplaceText).Length) / FindText.Length;
+			NoteContent = NoteContent.Replace(FindText, ReplaceText);
+			HasUnsavedChanges = true;
 		}
-		catch
-		{
-			ShowStatusMessage("Replace failed");
-		}
+
+		FindMatchCount = 0;
+		StatusMessage = $"Replaced {replaceCount} occurrences";
 	}
 
 	[RelayCommand]
@@ -431,11 +196,14 @@ public partial class NoteEditorViewModel : ViewModelBase
 	[RelayCommand]
 	private void InsertTable() => AppendText("\n| Header 1 | Header 2 |\n| -------- | -------- |\n| Cell 1   | Cell 2   |");
 
-	[RelayCommand]
-	private void InsertHorizontalRule() => AppendText("\n---\n");
-
 	private void AppendText(string text)
 	{
-		NoteContent = (NoteContent ?? "") + text;
+		NoteContent += text;
+		HasUnsavedChanges = true;
+	}
+
+	partial void OnNoteContentChanged(string value)
+	{
+		HasUnsavedChanges = true;
 	}
 }

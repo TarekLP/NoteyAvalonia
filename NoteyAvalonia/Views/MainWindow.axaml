@@ -48,12 +48,12 @@
                      Margin="12,0,0,8"
                      LetterSpacing="1"/>
 
-          <Button Classes="sidebar-btn" Command="{Binding GoHomeCommand}">
+          <Button Classes="sidebar-btn" Command="{Binding NavigateToWelcomeCommand}">
             <StackPanel Orientation="Horizontal" Spacing="14">
               <Border Width="24" Height="24" CornerRadius="4" Background="#2a2a2e">
                 <TextBlock Text="⌂" FontSize="16" 
                            Foreground="{StaticResource Brush.Accent}"
-                           HorizontalAlignment="Center"
+                           HorizontalAlignment="Center" 
                            VerticalAlignment="Center"/>
               </Border>
               <TextBlock Text="Home" 
@@ -62,7 +62,7 @@
             </StackPanel>
           </Button>
 
-          <Button Classes="sidebar-btn" Command="{Binding GoSettingsCommand}">
+          <Button Classes="sidebar-btn" Command="{Binding NavigateToSettingsCommand}">
             <StackPanel Orientation="Horizontal" Spacing="14">
               <Border Width="24" Height="24" CornerRadius="4" Background="#2a2a2e">
                 <TextBlock Text="⚙" FontSize="16" 
@@ -76,7 +76,7 @@
             </StackPanel>
           </Button>
 
-          <Button Classes="sidebar-btn" Command="{Binding GoCreditsCommand}">
+          <Button Classes="sidebar-btn" Command="{Binding NavigateToCreditsCommand}">
             <StackPanel Orientation="Horizontal" Spacing="14">
               <Border Width="24" Height="24" CornerRadius="4" Background="#2a2a2e">
                 <TextBlock Text="♥" FontSize="16" 
@@ -95,7 +95,7 @@
         <!-- Footer -->
         <StackPanel DockPanel.Dock="Bottom" Margin="16,0,16,20">
           <Separator Background="{StaticResource Brush.Border}" Margin="0,0,0,16" />
-          <TextBlock Text="v1.1.0" 
+          <TextBlock Text="BETA - 1.0" 
                      FontSize="10" 
                      Foreground="#555"
                      HorizontalAlignment="Center" />

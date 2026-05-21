@@ -38,7 +38,6 @@ public partial class MainWindowViewModel : ViewModelBase
 
 		ApplyAppSettings();
 		NavigateToWelcome();
-
 	}
 
 	public void ApplyAppSettings()
@@ -59,6 +58,13 @@ public partial class MainWindowViewModel : ViewModelBase
 		}
 	}
 
+	[RelayCommand]
+	public void ToggleSidebar()
+	{
+		IsSidebarVisible = !IsSidebarVisible;
+	}
+
+	[RelayCommand]
 	public void NavigateToWelcome()
 	{
 		CurrentView = new WelcomeViewModel(_navigation, DataService);
@@ -77,43 +83,17 @@ public partial class MainWindowViewModel : ViewModelBase
 		Title = $"Notey - Editing: {card.Title}";
 	}
 
+	[RelayCommand]
 	public void NavigateToSettings()
 	{
 		CurrentView = new SettingsViewModel(DataService, _navigation);
 		Title = "Notey - Settings";
 	}
 
+	[RelayCommand]
 	public void NavigateToCredits()
 	{
 		CurrentView = new CreditsViewModel();
 		Title = "Notey - Credits";
 	}
-	public class BoolToDoubleConverter : IValueConverter
-	{
-		public double TrueValue { get; set; }
-		public double FalseValue { get; set; }
-
-		public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-		{
-			if (value is bool b)
-				return b ? TrueValue : FalseValue;
-			return FalseValue;
-		}
-
-		public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
-		{
-			throw new NotImplementedException();
-		}
-	}
-	[RelayCommand]
-	private void GoHome() => NavigateToWelcome();
-
-	[RelayCommand]
-	private void GoSettings() => NavigateToSettings();
-	
-	[RelayCommand]
-	private void GoCredits() => NavigateToCredits();
-
-	[RelayCommand]
-	private void ToggleSidebar() => IsSidebarVisible = !IsSidebarVisible;
 }

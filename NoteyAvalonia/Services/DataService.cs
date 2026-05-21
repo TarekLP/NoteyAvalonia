@@ -1,5 +1,4 @@
 using NoteToolAvalonia.Models;
-using NoteToolAvalonia.Services;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -18,6 +17,8 @@ public class DataService
 	private readonly object _fileLock = new object();
 	private const int MaxRetries = 3;
 	private const int RetryDelayMs = 100;
+
+	public string DataFolder => _dataFolder;
 
 	public DataService()
 	{
@@ -50,7 +51,18 @@ public class DataService
 		}
 	}
 
-	public void SaveBoards(List<Board> boards)
+	public void SaveBoard(Board board)
+	{
+		var boards = LoadBoards();
+		var index = boards.FindIndex(b => b.Id == board.Id);
+		if (index != -1)
+			boards[index] = board;
+		else
+			boards.Add(board);
+		SaveBoards(boards);
+	}
+
+	private void SaveBoards(List<Board> boards)
 	{
 		lock (_fileLock)
 		{
@@ -59,26 +71,11 @@ public class DataService
 		}
 	}
 
-	public void SaveBoard(Board board)
-	{
-		lock (_fileLock)
-		{
-			var boards = LoadBoards();
-			var idx = boards.FindIndex(b => b.Id == board.Id);
-			if (idx >= 0) boards[idx] = board;
-			else boards.Add(board);
-			SaveBoards(boards);
-		}
-	}
-
 	public void DeleteBoard(string boardId)
 	{
-		lock (_fileLock)
-		{
-			var boards = LoadBoards();
-			boards.RemoveAll(b => b.Id == boardId);
-			SaveBoards(boards);
-		}
+		var boards = LoadBoards();
+		boards.RemoveAll(b => b.Id == boardId);
+		SaveBoards(boards);
 	}
 
 	public AppSettings LoadSettings()
@@ -104,10 +101,25 @@ public class DataService
 		}
 	}
 
-	/// <summary>
-	/// Write file with retry logic to handle file locking from other processes.
-	/// Attempts up to MaxRetries times with RetryDelayMs between attempts.
-	/// </summary>
+	public string LoadNoteContent(string noteId)
+	{
+		return _noteFileService.LoadNote(noteId);
+	}
+
+	public void SaveNoteContent(string noteId, string content)
+	{
+		_noteFileService.SaveNote(noteId, content);
+	}
+
+	public void ExportNoteToMarkdown(string noteId, string targetFilePath)
+	{
+		var content = LoadNoteContent(noteId);
+		lock (_fileLock)
+		{
+			WriteFileWithRetry(targetFilePath, content);
+		}
+	}
+
 	private void WriteFileWithRetry(string filePath, string content)
 	{
 		for (int attempt = 0; attempt < MaxRetries; attempt++)
@@ -115,27 +127,17 @@ public class DataService
 			try
 			{
 				File.WriteAllText(filePath, content);
-				return; // Success
+				return;
 			}
 			catch (IOException) when (attempt < MaxRetries - 1)
 			{
-				// File is locked, wait and retry
 				Thread.Sleep(RetryDelayMs);
 			}
 			catch
 			{
-				throw; // Not a locking error, throw immediately
+				throw;
 			}
 		}
-
-		// If we got here, all retries failed
-		throw new IOException($"Could not write to {filePath} after {MaxRetries} attempts");
+		throw new IOException($"Could not write to {filePath} after {MaxRetries} attempts.");
 	}
-
-	public string DataFolder => _dataFolder;
-	public NoteFileService NoteFiles => _noteFileService;
-
-
-	public void DeleteNoteContent(string noteId) =>
-	_noteFileService.DeleteNote(noteId);
 }

@@ -13,6 +13,7 @@ public partial class BoardViewModel : ViewModelBase
 {
 	public readonly NavigationService _navigation;
 	public readonly DataService _dataService;
+
 	[ObservableProperty]
 	public Board _board;
 
@@ -47,103 +48,51 @@ public partial class BoardViewModel : ViewModelBase
 	}
 
 	[RelayCommand]
-	public void ShowAddColumn()
-	{
-		IsAddingColumn = true;
-		NewColumnTitle = string.Empty;
-	}
-
-	[RelayCommand]
-	public void CancelAddColumn() => IsAddingColumn = false;
-
-	[RelayCommand]
 	public void AddColumn()
 	{
 		if (string.IsNullOrWhiteSpace(NewColumnTitle)) return;
-		Columns.Add(new BoardColumn
+
+		var newColumn = new BoardColumn
 		{
 			Title = NewColumnTitle.Trim(),
 			Order = Columns.Count,
 			Color = "#3498db"
-		});
-		IsAddingColumn = false;
+		};
+
+		Columns.Add(newColumn);
+		Save();
 		NewColumnTitle = string.Empty;
-		Save();
-	}
-
-	[RelayCommand]
-	public void DeleteColumn(BoardColumn column)
-	{
-		Columns.Remove(column);
-		for (int i = 0; i < Columns.Count; i++) Columns[i].Order = i;
-		Save();
-	}
-
-	[RelayCommand]
-	public void AddNote()
-	{
-		var firstColumn = Columns.FirstOrDefault();
-		if (firstColumn != null)
-		{
-			AddCard(firstColumn);
-		}
+		IsAddingColumn = false;
 	}
 
 	[RelayCommand]
 	public void AddCard(BoardColumn column)
 	{
-		var card = new NoteCard { Title = "New Note", ColumnId = column.Id };
-		column.Cards.Add(card);
-		Save();
-		RefreshColumns();
-		_navigation.NavigateToNoteEditor(card, Board, column);
-	}
-
-	[RelayCommand]
-	public void OpenCard(NoteCard card)
-	{
-		var column = Columns.FirstOrDefault(c => c.Cards.Any(n => n.Id == card.Id));
-		if (column != null) _navigation.NavigateToNoteEditor(card, Board, column);
-	}
-
-	[RelayCommand]
-	public void DeleteCard(NoteCard card)
-	{
-		foreach (var col in Columns)
+		var newCard = new NoteCard
 		{
-			var toRemove = col.Cards.FirstOrDefault(c => c.Id == card.Id);
-			if (toRemove != null)
-			{
-				col.Cards.Remove(toRemove);
-				_dataService.NoteFiles.DeleteNote(card.Id);
-				break;
-			}
-		}
+			Title = "New Note",
+			ColumnId = column.Id,
+			Priority = NotePriority.None,
+			CreatedAt = DateTime.Now,
+			LastModified = DateTime.Now
+		};
+
+		column.Cards.Add(newCard);
 		Save();
-		RefreshColumns();
+
+		_navigation.NavigateToNoteEditor(newCard, Board, column);
 	}
 
-	[RelayCommand]
-	public void MoveCardLeft(NoteCard card) => MoveCard(card, -1);
-
-	[RelayCommand]
-	public void MoveCardRight(NoteCard card) => MoveCard(card, 1);
-
-	public void MoveCard(NoteCard card, int direction)
+	public void MoveCardToColumn(NoteCard card, BoardColumn targetColumn)
 	{
-		var sourceCol = Columns.FirstOrDefault(c => c.Cards.Any(n => n.Id == card.Id));
-		if (sourceCol == null) return;
-		var sourceIdx = Columns.IndexOf(sourceCol);
-		var targetIdx = sourceIdx + direction;
-		if (targetIdx < 0 || targetIdx >= Columns.Count) return;
-		var targetCol = Columns[targetIdx];
-		var toRemove = sourceCol.Cards.FirstOrDefault(c => c.Id == card.Id);
-		if (toRemove != null)
-			sourceCol.Cards.Remove(toRemove);
-		card.ColumnId = targetCol.Id;
-		targetCol.Cards.Add(card);
+		var sourceCol = Columns.FirstOrDefault(c => c.Id == card.ColumnId);
+		if (sourceCol != null)
+		{
+			sourceCol.Cards.Remove(card);
+		}
+		card.ColumnId = targetColumn.Id;
+		targetColumn.Cards.Add(card);
 		Save();
-		RefreshColumns();
 	}
 
 	[RelayCommand]
@@ -181,24 +130,46 @@ public partial class BoardViewModel : ViewModelBase
 	[RelayCommand]
 	public void EditCard(NoteCard card)
 	{
-		OpenCard(card);
+		var column = Columns.FirstOrDefault(c => c.Id == card.ColumnId);
+		if (column != null)
+		{
+			_navigation.NavigateToNoteEditor(card, Board, column);
+		}
 	}
 
 	[RelayCommand]
-	public void CancelEditBoardName() => IsEditingBoardName = false;
+	public void CancelEditBoardName()
+	{
+		IsEditingBoardName = false;
+	}
 
 	[RelayCommand]
-	public void GoBack() => _navigation.NavigateToWelcome();
-
-	public void MoveCardToColumn(NoteCard card, BoardColumn targetColumn)
+	public void OpenCard(NoteCard card)
 	{
-		var sourceColumn = Columns.FirstOrDefault(c => c.Cards.Contains(card));
-		if (sourceColumn == null || sourceColumn == targetColumn) return;
+		var column = Columns.FirstOrDefault(c => c.Id == card.ColumnId);
+		if (column != null)
+		{
+			_navigation.NavigateToNoteEditor(card, Board, column);
+		}
+	}
 
-		sourceColumn.Cards.Remove(card);
-		card.ColumnId = targetColumn.Id;
-		targetColumn.Cards.Add(card);
+	[RelayCommand]
+	public void DeleteColumn(BoardColumn column)
+	{
+		if (column == null) return;
+		Columns.Remove(column);
 		Save();
-		RefreshColumns();
+	}
+
+	[RelayCommand]
+	public void DeleteCard(NoteCard card)
+	{
+		if (card == null) return;
+		var column = Columns.FirstOrDefault(c => c.Id == card.ColumnId);
+		if (column != null)
+		{
+			column.Cards.Remove(card);
+			Save();
+		}
 	}
 }

@@ -98,6 +98,20 @@ public class EditHistoryService
 	}
 
 	/// <summary>
+	/// Redo the last undone edit. Returns the next state, or null if nothing to redo.
+	/// </summary>
+	public (string Content, int CursorPosition)? Redo(string content)
+	{
+		if (_redoStack.Count == 0) return null;
+
+		var state = _redoStack[_redoStack.Count - 1];
+		_redoStack.RemoveAt(_redoStack.Count - 1);
+		_undoStack.Add(state);
+
+		return (state.Content, state.CursorPosition);
+	}
+
+	/// <summary>
 	/// Manually create a revision snapshot at the current moment.
 	/// </summary>
 	public void CreateRevision(string content)

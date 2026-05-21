@@ -125,12 +125,97 @@ public partial class NoteEditorView : UserControl
 		if (_editorTextBox != null)
 		{
 			_editorTextBox.TextChanged += EditorTextBox_TextChanged;
+			_editorTextBox.AddHandler(PointerPressedEvent, OnEditorPointerPressed, handledEventsToo: true);
 		}
 	}
 
 	private void EditorTextBox_TextChanged(object? sender, TextChangedEventArgs e)
 	{
 		UpdateLineNumbers();
+	}
+
+	private void OnEditorPointerPressed(object? sender, PointerPressedEventArgs e)
+	{
+		if (_editorTextBox == null) return;
+
+		var point = e.GetPosition(_editorTextBox);
+
+		// Determine clicked line using line height (fallback to FontSize estimate)
+		var text = _editorTextBox.Text ?? string.Empty;
+		var lines = text.Split('\n');
+
+		double lineHeight = _editorTextBox.LineHeight;
+		if (lineHeight <= 0)
+		{
+			// Estimate line height from font size if not set
+			lineHeight = _editorTextBox.FontSize * 1.2;
+		}
+
+		var clickedLine = (int)Math.Floor(point.Y / lineHeight);
+		if (clickedLine < 0) clickedLine = 0;
+		if (clickedLine >= lines.Length) clickedLine = lines.Length - 1;
+
+		// Look for a checklist pattern in the clicked line
+		var lineText = lines[clickedLine];
+		int posInLine = lineText.IndexOf("[ ]", StringComparison.Ordinal);
+		if (posInLine < 0)
+			posInLine = lineText.IndexOf("[x]", StringComparison.OrdinalIgnoreCase);
+
+		if (posInLine >= 0)
+		{
+			// Compute global index in the full text (include previous lines and their newlines)
+			int globalIndex = 0;
+			for (int i = 0; i < clickedLine; i++)
+			{
+				globalIndex += lines[i].Length + 1; // +1 for the '\n'
+			}
+			globalIndex += posInLine;
+
+			// Toggle the checkbox starting at the bracket position
+			e.Handled = true;
+			ToggleCheckboxAtIndex(globalIndex);
+		}
+	}
+
+	private bool IsCheckboxAtIndex(string text, int index)
+	{
+		// Look for [ ] or [x] pattern around the clicked position
+		var start = Math.Max(0, index - 2);
+		var end = Math.Min(text.Length, index + 3);
+		var substring = text.Substring(start, end - start);
+
+		return substring.Contains("[ ]") || substring.Contains("[x]") || substring.Contains("[X]");
+	}
+
+	private void ToggleCheckboxAtIndex(int index)
+	{
+		if (_editorTextBox?.Text == null) return;
+
+		var text = _editorTextBox.Text;
+
+		// Find the checkbox [ ] or [x] around the clicked position
+		var checkboxStart = -1;
+		var checkboxEnd = -1;
+
+		// Search backwards from index
+		for (int i = Math.Min(index, text.Length - 1); i >= Math.Max(0, index - 10); i--)
+		{
+			if (text[i] == '[' && i + 2 < text.Length && text[i + 2] == ']')
+			{
+				checkboxStart = i;
+				checkboxEnd = i + 3;
+				break;
+			}
+		}
+
+		if (checkboxStart >= 0)
+		{
+			var checkboxContent = text[checkboxStart + 1];
+			var newCheckbox = (checkboxContent == ' ') ? "[x]" : "[ ]";
+			var newText = text.Substring(0, checkboxStart) + newCheckbox + text.Substring(checkboxEnd);
+			_editorTextBox.Text = newText;
+			_editorTextBox.CaretIndex = checkboxStart;
+		}
 	}
 
 	private void UpdateLineNumbers()
@@ -214,7 +299,9 @@ public partial class NoteEditorView : UserControl
 		else
 		{
 			// Just the current line
-			var currentLine = text.Substring(lineStart, (_editorTextBox.Text?.IndexOf('\n', lineStart) ?? _editorTextBox.Text?.Length ?? 0) - lineStart);
+			var lineEndPos = text.IndexOf('\n', lineStart);
+			var lineEnd = lineEndPos >= 0 ? lineEndPos : text.Length;
+			var currentLine = text.Substring(lineStart, lineEnd - lineStart);
 			var newLine = prefix + currentLine;
 			var newText = text.Substring(0, lineStart) + newLine + text.Substring(lineStart + currentLine.Length);
 			_editorTextBox.Text = newText;

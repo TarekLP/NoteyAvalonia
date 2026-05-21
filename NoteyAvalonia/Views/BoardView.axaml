@@ -178,7 +178,7 @@
                 </StackPanel>
 
                 <!-- Add Card Button -->
-                <Button Command="{Binding $parent[UserControl].DataContext.AddCardCommand}"
+                <Button Command="{Binding $parent[UserControl].((vm:BoardViewModel)DataContext).AddCardCommand}"
                         CommandParameter="{Binding}"
                         Classes="ghost"
                         Padding="12,10"

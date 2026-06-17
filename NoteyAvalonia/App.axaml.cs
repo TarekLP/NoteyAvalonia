@@ -1,4 +1,4 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using NoteToolAvalonia.Services;
@@ -9,26 +9,22 @@ namespace NoteToolAvalonia;
 
 public class App : Application
 {
-	public override void Initialize()
-	{
-		AvaloniaXamlLoader.Load(this);
-	}
+    public override void Initialize()
+    {
+        AvaloniaXamlLoader.Load(this);
+    }
 
-	public override void OnFrameworkInitializationCompleted()
-	{
-		if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-		{
-			var dataService = new DataService();
-			var navigationService = new NavigationService();
+    public override void OnFrameworkInitializationCompleted()
+    {
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            var noteyService = new NoteyService();
+            var mainVm = new MainWindowViewModel(noteyService);
+            noteyService.SetMainViewModel(mainVm);
 
-			var mainVm = new MainWindowViewModel(navigationService, dataService);
-			navigationService.SetMainViewModel(mainVm);
-
-			var mainWindow = new MainWindow { DataContext = mainVm };
-			desktop.MainWindow = mainWindow;
-
-			mainVm.NavigateToWelcome();
-		}
-		base.OnFrameworkInitializationCompleted();
-	}
+            desktop.MainWindow = new MainWindow { DataContext = mainVm };
+            mainVm.NavigateToWelcome();
+        }
+        base.OnFrameworkInitializationCompleted();
+    }
 }

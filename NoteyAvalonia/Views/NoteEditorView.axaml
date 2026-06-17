@@ -1,258 +1,442 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:NoteToolAvalonia.ViewModels"
-             xmlns:md="clr-namespace:Markdown.Avalonia;assembly=Markdown.Avalonia"
              xmlns:local="using:NoteToolAvalonia.Views"
+             xmlns:converters="using:NoteToolAvalonia.Converters"
+             xmlns:aedit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
              x:Class="NoteToolAvalonia.Views.NoteEditorView"
              x:DataType="vm:NoteEditorViewModel">
 
   <UserControl.Resources>
-    <local:BoolToTextWrappingConverter x:Key="BoolToTextWrappingConverter"/>
+    <local:BoolToTextWrappingConverter x:Key="BoolToWrap"/>
   </UserControl.Resources>
 
   <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
-    <!-- Header with Back and Save -->
-    <Border Grid.Row="0" Background="{StaticResource Brush.Background}" Padding="15,8" BorderBrush="#252526" BorderThickness="0,0,0,1">
+
+    <!-- ═══════════════════════════════════════════
+         ROW 0 — Top bar
+         ═══════════════════════════════════════════ -->
+    <Border Grid.Row="0"
+            Background="{StaticResource Brush.Surface}"
+            BorderBrush="{StaticResource Brush.Border}"
+            BorderThickness="0,0,0,1"
+            Padding="16,10">
       <DockPanel>
-        <StackPanel Orientation="Horizontal" Spacing="5" DockPanel.Dock="Left">
-          <Button Command="{Binding GoBackCommand}" Background="Transparent">
-            <TextBlock Text="← Back" Foreground="MediumPurple"/>
+
+        <!-- Back -->
+        <Button DockPanel.Dock="Left"
+                Command="{Binding GoBackCommand}"
+                Background="Transparent" BorderThickness="0"
+                Padding="8,6" Cursor="Hand" Margin="0,0,12,0">
+          <TextBlock Text="← Back" Foreground="{StaticResource Brush.Accent}" FontSize="13"/>
+        </Button>
+
+        <!-- Right-side actions -->
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8">
+          <Button Command="{Binding ToggleReferencesPanelCommand}"
+                  Background="{StaticResource Brush.SurfaceAlt}"
+                  CornerRadius="6" Padding="10,6" Cursor="Hand"
+                  ToolTip.Tip="References">
+            <TextBlock Text="🔗 References" FontSize="12"
+                       Foreground="{StaticResource Brush.TextPrimary}"/>
           </Button>
-          <TextBox Text="{Binding NoteTitle}" Width="300" FontWeight="Bold" Background="Transparent" 
-                   BorderThickness="0" VerticalAlignment="Center"/>
+          <Button Command="{Binding SaveCommand}"
+                  Classes="accent" Padding="16,6">
+            <TextBlock Text="Save" FontSize="13"/>
+          </Button>
+          <Button Command="{Binding DeleteCommand}"
+                  Background="#c0392b" CornerRadius="6"
+                  Padding="10,6" Cursor="Hand"
+                  ToolTip.Tip="Delete note">
+            <TextBlock Text="🗑" FontSize="13" Foreground="White"/>
+          </Button>
         </StackPanel>
 
-        <Button DockPanel.Dock="Right" Command="{Binding SaveCommand}" Background="{StaticResource Brush.Accent}" Foreground="White" 
-                Content="Save" Margin="0,0,8,0"/>
+        <!-- Title -->
+        <TextBox DockPanel.Dock="Left"
+                 Text="{Binding NoteTitle, Mode=TwoWay}"
+                 FontSize="18" FontWeight="Bold"
+                 Background="Transparent" BorderThickness="0"
+                 VerticalAlignment="Center"
+                 Watermark="Note title..."
+                 Foreground="{StaticResource Brush.TextPrimary}"/>
+
       </DockPanel>
     </Border>
 
-    <!-- Main Toolbar - Row 1 -->
-    <Border Grid.Row="1" Background="{StaticResource Brush.Background}" Padding="15,8" BorderBrush="#252526" BorderThickness="0,0,0,1">
-      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-        <StackPanel Orientation="Horizontal" Spacing="8">
-          <!-- Undo/Redo -->
-          <Button ToolTip.Tip="Undo (Ctrl+Z)" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}"
-                  Command="{Binding UndoCommand}">
+    <!-- ═══════════════════════════════════════════
+         ROW 1 — Metadata bar (category, tags, deadline)
+         ═══════════════════════════════════════════ -->
+    <Border Grid.Row="1"
+            Background="{StaticResource Brush.Background}"
+            BorderBrush="{StaticResource Brush.Border}"
+            BorderThickness="0,0,0,1"
+            Padding="24,8">
+      <StackPanel Orientation="Horizontal" Spacing="16">
+
+        <!-- Category chip -->
+        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <TextBlock Text="📁" FontSize="12" VerticalAlignment="Center"/>
+          <TextBox Text="{Binding Category, Mode=TwoWay}"
+                   Watermark="Category..."
+                   FontSize="12"
+                   Background="Transparent"
+                   BorderThickness="0,0,0,1"
+                   BorderBrush="{StaticResource Brush.Border}"
+                   Padding="4,2"
+                   MinWidth="80"
+                   Foreground="{StaticResource Brush.TextPrimary}"/>
+        </StackPanel>
+
+        <Border Width="1" Background="{StaticResource Brush.Border}" Margin="0,4"/>
+
+        <!-- Tags -->
+        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <TextBlock Text="🏷" FontSize="12" VerticalAlignment="Center"/>
+          <TextBox Text="{Binding TagsDisplay, Mode=TwoWay}"
+                   Watermark="Tags (comma-separated)..."
+                   FontSize="12"
+                   Background="Transparent"
+                   BorderThickness="0,0,0,1"
+                   BorderBrush="{StaticResource Brush.Border}"
+                   Padding="4,2"
+                   MinWidth="160"
+                   Foreground="{StaticResource Brush.TextPrimary}"/>
+        </StackPanel>
+
+        <Border Width="1" Background="{StaticResource Brush.Border}" Margin="0,4"/>
+
+        <!-- Deadline -->
+        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <TextBlock Text="📅" FontSize="12" VerticalAlignment="Center"/>
+          <Border IsVisible="{Binding HasDeadline}"
+                  Background="{Binding IsOverdue, Converter={x:Static converters:DeadlineBgConverter.Instance}}"
+                  CornerRadius="4" Padding="6,2">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="{Binding DeadlineText}"
+                         FontSize="12"
+                         Foreground="{Binding IsOverdue, Converter={x:Static converters:DeadlineFgConverter.Instance}}"/>
+              <Button Command="{Binding ClearDeadlineCommand}"
+                      Background="Transparent" BorderThickness="0"
+                      Padding="0" Cursor="Hand">
+                <TextBlock Text="×" FontSize="12"
+                           Foreground="{StaticResource Brush.TextSecondary}"/>
+              </Button>
+            </StackPanel>
+          </Border>
+          <TextBox IsVisible="{Binding !HasDeadline}"
+                   Text="{Binding DeadlineText, Mode=TwoWay}"
+                   Watermark="YYYY-MM-DD..."
+                   FontSize="12"
+                   Background="Transparent"
+                   BorderThickness="0,0,0,1"
+                   BorderBrush="{StaticResource Brush.Border}"
+                   Padding="4,2"
+                   MinWidth="100"
+                   Foreground="{StaticResource Brush.TextPrimary}"
+                   Name="DeadlineBox"/>
+          <Button IsVisible="{Binding !HasDeadline}"
+                  Command="{Binding SetDeadlineCommand}"
+                  CommandParameter="{Binding DeadlineText}"
+                  Background="Transparent" BorderThickness="0"
+                  Padding="4,2" Cursor="Hand">
+            <TextBlock Text="Set" FontSize="11"
+                       Foreground="{StaticResource Brush.Accent}"/>
+          </Button>
+        </StackPanel>
+
+      </StackPanel>
+    </Border>
+
+    <!-- ═══════════════════════════════════════════
+         ROW 2 — Toolbar
+         ═══════════════════════════════════════════ -->
+    <Border Grid.Row="2"
+            Background="{StaticResource Brush.Surface}"
+            BorderBrush="{StaticResource Brush.Border}"
+            BorderThickness="0,0,0,1"
+            Padding="12,6">
+      <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                    VerticalScrollBarVisibility="Disabled">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+
+          <!-- Undo / Redo -->
+          <Button Command="{Binding UndoCommand}"
+                  ToolTip.Tip="Undo (Ctrl+Z)"
+                  Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
             <StackPanel Orientation="Horizontal" Spacing="4">
-              <TextBlock Text="↶" FontSize="14"/>
-              <TextBlock Text="{Binding UndoCount}" FontSize="11"/>
+              <TextBlock Text="↶" FontSize="14" Foreground="{StaticResource Brush.TextPrimary}"/>
+              <TextBlock Text="{Binding UndoCount}" FontSize="11"
+                         Foreground="{StaticResource Brush.TextSecondary}"/>
             </StackPanel>
           </Button>
-          <Button ToolTip.Tip="Redo (Ctrl+Y)" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}"
-                  Command="{Binding RedoCommand}">
+          <Button Command="{Binding RedoCommand}"
+                  ToolTip.Tip="Redo (Ctrl+Y)"
+                  Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
             <StackPanel Orientation="Horizontal" Spacing="4">
-              <TextBlock Text="↷" FontSize="14"/>
-              <TextBlock Text="{Binding RedoCount}" FontSize="11"/>
+              <TextBlock Text="↷" FontSize="14" Foreground="{StaticResource Brush.TextPrimary}"/>
+              <TextBlock Text="{Binding RedoCount}" FontSize="11"
+                         Foreground="{StaticResource Brush.TextSecondary}"/>
             </StackPanel>
           </Button>
 
-          <!-- Separator -->
-          <Separator Background="#3e3e42" Margin="4,0"/>
+          <Separator Background="{StaticResource Brush.Border}" Margin="6,0"/>
 
-          <!-- Formatting Buttons (wrap selection) -->
-          <Button Name="BoldButton" ToolTip.Tip="Bold: Ctrl+B or select text then click" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-            <TextBlock Text="𝐁" FontSize="14" FontWeight="Bold"/>
+          <!-- Formatting -->
+          <Button Name="BoldButton"       ToolTip.Tip="Bold (Ctrl+B)"  Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="𝐁" FontSize="14" FontWeight="Bold" Foreground="{StaticResource Brush.TextPrimary}"/>
           </Button>
-          <Button Name="ItalicButton" ToolTip.Tip="Italic: Ctrl+I or select text then click" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-            <TextBlock Text="𝘐" FontSize="14" FontStyle="Italic"/>
+          <Button Name="ItalicButton"     ToolTip.Tip="Italic (Ctrl+I)" Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="𝘐" FontSize="14" FontStyle="Italic" Foreground="{StaticResource Brush.TextPrimary}"/>
           </Button>
-          <Button Name="StrikethroughButton" ToolTip.Tip="Strikethrough: select text then click" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-            <TextBlock Text="S̶" FontSize="14"/>
+          <Button Name="StrikeButton"     ToolTip.Tip="Strikethrough"   Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="S̶" FontSize="14" Foreground="{StaticResource Brush.TextPrimary}"/>
           </Button>
-          <Button Name="CodeButton" ToolTip.Tip="Inline code: select text then click" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-            <TextBlock Text="`" FontSize="14" FontWeight="Bold"/>
-          </Button>
-
-          <!-- Separator -->
-          <Separator Background="#3e3e42" Margin="4,0"/>
-
-          <!-- Heading Buttons -->
-          <Button Name="Heading1Button" ToolTip.Tip="Heading 1" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-            <TextBlock Text="H1" FontSize="12" FontWeight="Bold"/>
-          </Button>
-          <Button Name="Heading2Button" ToolTip.Tip="Heading 2" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-            <TextBlock Text="H2" FontSize="12" FontWeight="Bold"/>
-          </Button>
-          <Button Name="Heading3Button" ToolTip.Tip="Heading 3" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-            <TextBlock Text="H3" FontSize="12" FontWeight="Bold"/>
+          <Button Name="CodeButton"       ToolTip.Tip="Inline code"     Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="`" FontSize="14" FontWeight="Bold" Foreground="{StaticResource Brush.TextPrimary}"/>
           </Button>
 
-          <!-- Separator -->
-          <Separator Background="#3e3e42" Margin="4,0"/>
+          <Separator Background="{StaticResource Brush.Border}" Margin="6,0"/>
 
-          <!-- List Buttons -->
-          <Button Name="BulletListButton" ToolTip.Tip="Bullet List" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-            <TextBlock Text="•" FontSize="14"/>
+          <Button Name="H1Button" ToolTip.Tip="Heading 1" Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="H1" FontSize="12" FontWeight="Bold" Foreground="{StaticResource Brush.TextPrimary}"/>
           </Button>
-          <Button Name="NumberedListButton" ToolTip.Tip="Numbered List" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-            <TextBlock Text="1." FontSize="12" FontWeight="Bold"/>
+          <Button Name="H2Button" ToolTip.Tip="Heading 2" Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="H2" FontSize="12" FontWeight="Bold" Foreground="{StaticResource Brush.TextPrimary}"/>
           </Button>
-          <Button Name="ChecklistButton" ToolTip.Tip="Checklist" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-            <TextBlock Text="☑" FontSize="14"/>
+          <Button Name="H3Button" ToolTip.Tip="Heading 3" Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="H3" FontSize="12" FontWeight="Bold" Foreground="{StaticResource Brush.TextPrimary}"/>
           </Button>
 
-          <!-- Separator -->
-          <Separator Background="#3e3e42" Margin="4,0"/>
+          <Separator Background="{StaticResource Brush.Border}" Margin="6,0"/>
 
-          <!-- Quote Button -->
-          <Button Name="QuoteButton" ToolTip.Tip="Quote" Padding="8,4" Background="{StaticResource Brush.Surface}" Foreground="{StaticResource Brush.TextPrimary}">
-            <TextBlock Text="&gt;" FontSize="14"/>
+          <Button Name="BulletButton"    ToolTip.Tip="Bullet list"   Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="•" FontSize="14" Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+          <Button Name="NumberedButton"  ToolTip.Tip="Numbered list" Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="1." FontSize="12" FontWeight="Bold" Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+          <Button Name="ChecklistButton" ToolTip.Tip="Checklist"     Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="☑" FontSize="14" Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+          <Button Name="QuoteButton"     ToolTip.Tip="Quote"         Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="&gt;" FontSize="14" Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+          <Button Name="TableButton"     ToolTip.Tip="Insert table"  Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="⊞" FontSize="14" Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+          <Button Name="HRButton"        ToolTip.Tip="Horizontal rule" Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="—" FontSize="14" Foreground="{StaticResource Brush.TextPrimary}"/>
           </Button>
 
-          <!-- Spacer -->
-          <Border Width="1"/>
+          <Separator Background="{StaticResource Brush.Border}" Margin="6,0"/>
 
-          <!-- View Options -->
-          <Button ToolTip.Tip="Line Numbers" Padding="8,4" 
-                  Background="{StaticResource Brush.Surface}" 
-                  Foreground="{StaticResource Brush.TextPrimary}"
-                  Command="{Binding ToggleLineNumbersCommand}">
-            <TextBlock Text="N" FontSize="12" FontWeight="Bold"/>
+          <Button Command="{Binding ToggleLineNumbersCommand}"
+                  ToolTip.Tip="Line Numbers"
+                  Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="№" FontSize="13" Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+          <Button Command="{Binding ToggleWordWrapCommand}"
+                  ToolTip.Tip="Word Wrap (Ctrl+Shift+W)"
+                  Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="↵" FontSize="14" Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+          <Button Command="{Binding ShowFindReplacePanelCommand}"
+                  ToolTip.Tip="Find &amp; Replace (Ctrl+H)"
+                  Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="⌕" FontSize="14" Foreground="{StaticResource Brush.TextPrimary}"/>
           </Button>
 
-          <Button ToolTip.Tip="Word Wrap (Ctrl+Shift+W)" Padding="8,4" 
-                  Background="{StaticResource Brush.Surface}" 
-                  Foreground="{StaticResource Brush.TextPrimary}"
-                  Command="{Binding ToggleWordWrapCommand}">
-            <TextBlock Text="↵" FontSize="14"/>
-          </Button>
-
-          <Button ToolTip.Tip="Find &amp; Replace (Ctrl+H)" Padding="8,4" 
-                  Background="{StaticResource Brush.Surface}" 
-                  Foreground="{StaticResource Brush.TextPrimary}"
-                  Command="{Binding ShowFindReplacePanelCommand}">
-            <TextBlock Text="⌕" FontSize="14"/>
-          </Button>
-
-          <!-- Separator -->
-          <Separator Background="#3e3e42" Margin="4,0"/>
-
-          <!-- Preview Toggle -->
-          <Button Name="PreviewToggleButton" 
-                  ToolTip.Tip="Toggle Preview (Ctrl+Shift+P)" 
-                  Padding="8,4" 
-                  Background="Transparent" 
-                  Foreground="{StaticResource Brush.Accent}">
-            <TextBlock Text="👁 Preview" FontSize="12"/>
-          </Button>
         </StackPanel>
       </ScrollViewer>
     </Border>
 
-    <!-- Find and Replace Panel -->
-    <Border Grid.Row="2" 
-            Background="{StaticResource Brush.Surface}" 
-            Padding="15,12" 
-            BorderBrush="#252526" 
-            BorderThickness="0,0,0,1"
-            IsVisible="{Binding ShowFindReplace}">
-      <Grid ColumnDefinitions="Auto,*,Auto,*,Auto">
-        <!-- Find -->
-        <TextBlock Grid.Column="0" Text="Find:" VerticalAlignment="Center" Foreground="{StaticResource Brush.TextPrimary}" Margin="0,0,8,0"/>
-        <TextBox Grid.Column="1" 
-                 Text="{Binding FindText, Mode=TwoWay}" 
-                 Watermark="Search text..."
-                 VerticalAlignment="Center"
-                 Margin="0,0,12,0"/>
-        <TextBlock Grid.Column="2" 
-                   Foreground="{StaticResource Brush.TextSecondary}"
-                   VerticalAlignment="Center"
-                   Margin="0,0,12,0">
-          <Run Text="{Binding FindMatchCount}"/>
-          <Run Text=" matches"/>
-        </TextBlock>
+    <!-- ═══════════════════════════════════════════
+         ROW 3 — Editor + References side panel
+         ═══════════════════════════════════════════ -->
+    <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
 
-        <!-- Replace -->
-        <TextBlock Grid.Column="3" Text="Replace:" VerticalAlignment="Center" Foreground="{StaticResource Brush.TextPrimary}" Margin="0,0,8,0"/>
-        <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8">
-          <TextBox Text="{Binding ReplaceText, Mode=TwoWay}" 
-                   Watermark="Replacement text..."
-                   Width="200"
-                   VerticalAlignment="Center"/>
-          <Button Content="Replace All" 
-                  Command="{Binding ReplaceAllCommand}"
-                  Classes="accent"
-                  Padding="12,6"
-                  FontSize="12"/>
-        </StackPanel>
-      </Grid>
-    </Border>
+      <!-- Find & Replace overlay (floats at top of editor) -->
+      <Grid Grid.Column="0" RowDefinitions="Auto,*">
+        <Border Grid.Row="0"
+                IsVisible="{Binding ShowFindReplace}"
+                Background="{StaticResource Brush.Surface}"
+                BorderBrush="{StaticResource Brush.Border}"
+                BorderThickness="0,0,0,1"
+                Padding="16,10">
+          <Grid ColumnDefinitions="Auto,*,Auto,*,Auto">
+            <TextBlock Grid.Column="0" Text="Find:" VerticalAlignment="Center"
+                       Foreground="{StaticResource Brush.TextPrimary}" Margin="0,0,8,0"/>
+            <TextBox Grid.Column="1"
+                     Text="{Binding FindText, Mode=TwoWay}"
+                     Watermark="Search..." Margin="0,0,8,0"/>
+            <TextBlock Grid.Column="2"
+                       Foreground="{StaticResource Brush.TextSecondary}"
+                       VerticalAlignment="Center" Margin="0,0,16,0">
+              <Run Text="{Binding FindMatchCount}"/>
+              <Run Text=" matches"/>
+            </TextBlock>
+            <TextBox Grid.Column="3"
+                     Text="{Binding ReplaceText, Mode=TwoWay}"
+                     Watermark="Replace with..." Margin="0,0,8,0"/>
+            <Button Grid.Column="4"
+                    Command="{Binding ReplaceAllCommand}"
+                    Classes="accent" Padding="12,6" Content="Replace All"/>
+          </Grid>
+        </Border>
 
-    <!-- Editor and Preview Pane -->
-    <Grid Grid.Row="3">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*"/>
-        <ColumnDefinition Width="Auto"/>
-        <ColumnDefinition Width="*"/>
-      </Grid.ColumnDefinitions>
-
-      <!-- Editor with optional line numbers -->
-      <Border Grid.Column="0" Background="{StaticResource Brush.Background}">
-        <Grid ColumnDefinitions="Auto,*">
-          <!-- Line Numbers (optional) -->
-          <Border Grid.Column="0" 
+        <!-- AvaloniaEdit live markdown editor -->
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*">
+          <!-- Line numbers sidebar -->
+          <Border Grid.Column="0"
                   IsVisible="{Binding ShowLineNumbers}"
                   Background="{StaticResource Brush.SurfaceAlt}"
-                  BorderBrush="#252526"
+                  BorderBrush="{StaticResource Brush.Border}"
                   BorderThickness="0,0,1,0"
-                  Padding="8,30,8,0"
-                  MinWidth="50">
-            <TextBlock Name="LineNumbersPanel" 
+                  Padding="8,30,8,0" MinWidth="48">
+            <TextBlock Name="LineNumbersPanel"
                        Foreground="{StaticResource Brush.TextSecondary}"
                        FontFamily="Cascadia Code, Consolas, monospace"
-                       FontSize="12"
-                       TextAlignment="Right"/>
+                       FontSize="13" TextAlignment="Right"/>
           </Border>
 
-          <!-- Text Editor -->
-          <TextBox Grid.Column="1"
-                   Text="{Binding NoteContent}"
-                   AcceptsReturn="True"
-                   TextWrapping="{Binding WordWrapEnabled, Converter={StaticResource BoolToTextWrappingConverter}}"
-                   Background="{StaticResource Brush.Background}"
-                   BorderThickness="0"
-                   Padding="30"
-                   Name="EditorTextBox"/>
+          <!-- The editor itself — wired up in code-behind -->
+          <aedit:TextEditor Grid.Column="1"
+                            Name="MarkdownEditor"
+                            FontFamily="Cascadia Code, Consolas, monospace"
+                            FontSize="15"
+                            Background="{StaticResource Brush.Background}"
+                            Foreground="{StaticResource Brush.TextPrimary}"
+                            Padding="30,20,30,20"
+                            ShowLineNumbers="False"
+                            WordWrap="True"
+                            HorizontalScrollBarVisibility="Disabled"
+                            VerticalScrollBarVisibility="Auto"/>
         </Grid>
-      </Border>
+      </Grid>
 
-      <!-- Splitter -->
-      <GridSplitter Grid.Column="1" 
-                    Width="4" 
-                    Background="{StaticResource Brush.Surface}" 
-                    Cursor="SizeWestEast"/>
+      <!-- References side panel -->
+      <Border Grid.Column="1"
+              IsVisible="{Binding IsReferencesPanelOpen}"
+              Width="300"
+              Background="{StaticResource Brush.Surface}"
+              BorderBrush="{StaticResource Brush.Border}"
+              BorderThickness="1,0,0,0">
+        <Grid RowDefinitions="Auto,Auto,*,Auto,*">
 
-      <!-- Preview Pane -->
-      <Border Grid.Column="2" 
-              Background="{StaticResource Brush.Background}"
-              BorderThickness="1,0,0,0"
-              BorderBrush="#252526"
-              Padding="30"
-              Name="PreviewPane">
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
-          <md:MarkdownScrollViewer Markdown="{Binding NoteContent}" />
-        </ScrollViewer>
+          <TextBlock Grid.Row="0"
+                     Text="References"
+                     FontSize="15" FontWeight="SemiBold"
+                     Foreground="{StaticResource Brush.TextPrimary}"
+                     Margin="16,16,16,8"/>
+
+          <TextBlock Grid.Row="1"
+                     Text="LINKED FROM THIS NOTE"
+                     FontSize="10" LetterSpacing="1"
+                     Foreground="{StaticResource Brush.TextSecondary}"
+                     Margin="16,0,16,8"/>
+
+          <!-- Linked notes -->
+          <ScrollViewer Grid.Row="2" MaxHeight="200">
+            <ItemsControl ItemsSource="{Binding ReferencedNotes}" Margin="8,0">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Margin="0,0,0,4" CornerRadius="6" Padding="10,8"
+                          Background="{StaticResource Brush.SurfaceAlt}"
+                          Cursor="Hand">
+                    <DockPanel>
+                      <Button DockPanel.Dock="Right"
+                              Command="{Binding $parent[UserControl].((vm:NoteEditorViewModel)DataContext).RemoveReferenceCommand}"
+                              CommandParameter="{Binding}"
+                              Background="Transparent" BorderThickness="0"
+                              Padding="4" Cursor="Hand">
+                        <TextBlock Text="×" FontSize="12"
+                                   Foreground="{StaticResource Brush.TextSecondary}"/>
+                      </Button>
+                      <TextBlock Text="{Binding Title}"
+                                 FontSize="13"
+                                 Foreground="{StaticResource Brush.TextPrimary}"
+                                 TextTrimming="CharacterEllipsis"
+                                 VerticalAlignment="Center"
+                                 Tapped="ReferencedNote_Tapped"/>
+                    </DockPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+
+          <Separator Grid.Row="3" Background="{StaticResource Brush.Border}" Margin="16,8"/>
+
+          <!-- Add reference -->
+          <Grid Grid.Row="4" RowDefinitions="Auto,*">
+            <StackPanel Grid.Row="0" Spacing="6" Margin="8,0,8,8">
+              <TextBlock Text="ADD REFERENCE"
+                         FontSize="10" LetterSpacing="1"
+                         Foreground="{StaticResource Brush.TextSecondary}"/>
+              <TextBox Text="{Binding ReferenceSearch, Mode=TwoWay}"
+                       Watermark="Search notes..."
+                       Padding="8,6" CornerRadius="6"/>
+            </StackPanel>
+            <ScrollViewer Grid.Row="1">
+              <ItemsControl ItemsSource="{Binding AllOtherNotes}" Margin="8,0">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border Margin="0,0,0,4" CornerRadius="6" Padding="10,8"
+                            Background="{StaticResource Brush.Background}"
+                            Cursor="Hand">
+                      <DockPanel>
+                        <Button DockPanel.Dock="Right"
+                                Command="{Binding $parent[UserControl].((vm:NoteEditorViewModel)DataContext).AddReferenceCommand}"
+                                CommandParameter="{Binding}"
+                                Background="Transparent" BorderThickness="0"
+                                Padding="4" Cursor="Hand">
+                          <TextBlock Text="+" FontSize="14"
+                                     Foreground="{StaticResource Brush.Accent}"/>
+                        </Button>
+                        <TextBlock Text="{Binding Title}"
+                                   FontSize="12"
+                                   Foreground="{StaticResource Brush.TextSecondary}"
+                                   TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center"/>
+                      </DockPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Grid>
+
+        </Grid>
       </Border>
     </Grid>
 
-    <!-- Status Bar -->
-    <Border Grid.Row="4" Background="{StaticResource Brush.Background}" Padding="20,6" BorderBrush="#252526" BorderThickness="0,1,0,0">
+    <!-- ═══════════════════════════════════════════
+         ROW 4 — Status bar
+         ═══════════════════════════════════════════ -->
+    <Border Grid.Row="4"
+            Background="{StaticResource Brush.Surface}"
+            BorderBrush="{StaticResource Brush.Border}"
+            BorderThickness="0,1,0,0"
+            Padding="20,6">
       <StackPanel Orientation="Horizontal" Spacing="20">
-        <TextBlock Foreground="#555">
+        <TextBlock Foreground="{StaticResource Brush.TextSecondary}" FontSize="12">
           <Run Text="{Binding WordCount}"/>
           <Run Text=" words"/>
         </TextBlock>
-        <TextBlock Foreground="#555">
+        <TextBlock Foreground="{StaticResource Brush.TextSecondary}" FontSize="12">
           <Run Text="{Binding CharacterCount}"/>
-          <Run Text=" characters"/>
+          <Run Text=" chars"/>
         </TextBlock>
-        <TextBlock Foreground="#555">
+        <TextBlock Foreground="{StaticResource Brush.TextSecondary}" FontSize="12">
           <Run Text="{Binding LineCount}"/>
           <Run Text=" lines"/>
         </TextBlock>
-        <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource Brush.Accent}" VerticalAlignment="Center"/>
+        <TextBlock Text="{Binding StatusMessage}"
+                   Foreground="{StaticResource Brush.Accent}"
+                   FontSize="12" VerticalAlignment="Center"/>
       </StackPanel>
     </Border>
+
   </Grid>
 </UserControl>

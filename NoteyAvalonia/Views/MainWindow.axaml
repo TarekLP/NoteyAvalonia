@@ -1,4 +1,4 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:NoteToolAvalonia.ViewModels"
         xmlns:views="using:NoteToolAvalonia.Views"
@@ -14,112 +14,97 @@
 
   <DockPanel>
 
-    <!-- Sidebar -->
-    <Border Classes="sidebar" 
+    <!-- ═══════════════════════════════════════════
+         SIDEBAR
+         ═══════════════════════════════════════════ -->
+    <Border Classes="sidebar"
             DockPanel.Dock="Left"
-            Width="260"
+            Width="220"
             IsVisible="{Binding IsSidebarVisible}">
-
       <DockPanel>
-        <!-- Header with Logo -->
-        <Border DockPanel.Dock="Top" 
+
+        <!-- Logo -->
+        <Border DockPanel.Dock="Top"
                 Background="{StaticResource Brush.Surface}"
-                Padding="20,24"
-                Margin="0,0,0,8">
-          <StackPanel Spacing="4">
-            <TextBlock Text="Notey" 
-                       FontSize="22" 
-                       FontWeight="Bold"
+                Padding="20,22" Margin="0,0,0,8">
+          <StackPanel Spacing="3">
+            <TextBlock Text="Notey"
+                       FontSize="20" FontWeight="Bold"
                        Foreground="{StaticResource Brush.TextPrimary}"
-                       HorizontalAlignment="Center" />
-            <TextBlock Text="Project Planning App" 
-                       FontSize="11" 
-                       Foreground="#888"
-                       HorizontalAlignment="Center" />
+                       HorizontalAlignment="Center"/>
+            <TextBlock Text="Knowledge Base"
+                       FontSize="10" Foreground="#888"
+                       HorizontalAlignment="Center"/>
           </StackPanel>
         </Border>
 
-        <!-- Navigation Section -->
-        <StackPanel DockPanel.Dock="Top" Margin="8,12,8,0">
-          
-          <TextBlock Text="NAVIGATION" 
-                     FontSize="10" 
-                     Foreground="#666" 
-                     Margin="12,0,0,8"
-                     LetterSpacing="1"/>
+        <!-- Nav -->
+        <StackPanel DockPanel.Dock="Top" Margin="8,8,8,0" Spacing="2">
 
-          <Button Classes="sidebar-btn" Command="{Binding NavigateToWelcomeCommand}">
-            <StackPanel Orientation="Horizontal" Spacing="14">
-              <Border Width="24" Height="24" CornerRadius="4" Background="#2a2a2e">
-                <TextBlock Text="⌂" FontSize="16" 
+          <TextBlock Text="NAVIGATE"
+                     FontSize="10" LetterSpacing="1"
+                     Foreground="#555" Margin="12,0,0,6"/>
+
+          <Button Classes="sidebar-btn" Command="{Binding GoHomeCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <Border Width="22" Height="22" CornerRadius="4" Background="#2a2a2e">
+                <TextBlock Text="⌂" FontSize="14"
                            Foreground="{StaticResource Brush.Accent}"
-                           HorizontalAlignment="Center" 
-                           VerticalAlignment="Center"/>
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
               </Border>
-              <TextBlock Text="Home" 
-                         VerticalAlignment="Center"
-                         FontSize="14"/>
+              <TextBlock Text="Notes" VerticalAlignment="Center" FontSize="13"/>
             </StackPanel>
           </Button>
 
-          <Button Classes="sidebar-btn" Command="{Binding NavigateToSettingsCommand}">
-            <StackPanel Orientation="Horizontal" Spacing="14">
-              <Border Width="24" Height="24" CornerRadius="4" Background="#2a2a2e">
-                <TextBlock Text="⚙" FontSize="16" 
+          <Button Classes="sidebar-btn" Command="{Binding GoSettingsCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <Border Width="22" Height="22" CornerRadius="4" Background="#2a2a2e">
+                <TextBlock Text="⚙" FontSize="14"
                            Foreground="{StaticResource Brush.Accent}"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"/>
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
               </Border>
-              <TextBlock Text="Settings" 
-                         VerticalAlignment="Center"
-                         FontSize="14"/>
+              <TextBlock Text="Settings" VerticalAlignment="Center" FontSize="13"/>
             </StackPanel>
           </Button>
 
-          <Button Classes="sidebar-btn" Command="{Binding NavigateToCreditsCommand}">
-            <StackPanel Orientation="Horizontal" Spacing="14">
-              <Border Width="24" Height="24" CornerRadius="4" Background="#2a2a2e">
-                <TextBlock Text="♥" FontSize="16" 
+          <Button Classes="sidebar-btn" Command="{Binding GoCreditsCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <Border Width="22" Height="22" CornerRadius="4" Background="#2a2a2e">
+                <TextBlock Text="♥" FontSize="14"
                            Foreground="{StaticResource Brush.Accent}"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"/>
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
               </Border>
-              <TextBlock Text="Credits" 
-                         VerticalAlignment="Center"
-                         FontSize="14"/>
+              <TextBlock Text="Credits" VerticalAlignment="Center" FontSize="13"/>
             </StackPanel>
           </Button>
 
         </StackPanel>
 
         <!-- Footer -->
-        <StackPanel DockPanel.Dock="Bottom" Margin="16,0,16,20">
-          <Separator Background="{StaticResource Brush.Border}" Margin="0,0,0,16" />
-          <TextBlock Text="BETA - 1.0" 
-                     FontSize="10" 
-                     Foreground="#555"
-                     HorizontalAlignment="Center" />
-          <TextBlock Text="Avalonia UI" 
-                     FontSize="9" 
-                     Foreground="#444"
-                     HorizontalAlignment="Center"
-                     Margin="0,2,0,0" />
+        <StackPanel DockPanel.Dock="Bottom" Margin="16,0,16,18">
+          <Separator Background="{StaticResource Brush.Border}" Margin="0,0,0,12"/>
+          <TextBlock Text="v2.0.0"
+                     FontSize="10" Foreground="#555"
+                     HorizontalAlignment="Center"/>
+          <TextBlock Text="Avalonia UI"
+                     FontSize="9" Foreground="#444"
+                     HorizontalAlignment="Center" Margin="0,2,0,0"/>
         </StackPanel>
 
-        <Panel />
+        <Panel/>
       </DockPanel>
     </Border>
 
-    <!-- Hamburger Toggle Button (Always Visible) -->
-    <Border DockPanel.Dock="Left" 
-            Background="#252526"
-            Width="50">
+    <!-- ═══════════════════════════════════════════
+         HAMBURGER TOGGLE
+         ═══════════════════════════════════════════ -->
+    <Border DockPanel.Dock="Left" Background="#252526" Width="44">
       <Button Command="{Binding ToggleSidebarCommand}"
               VerticalAlignment="Top"
               HorizontalAlignment="Center"
-              Margin="0,16,0,0"
+              Margin="0,14,0,0"
               Background="Transparent"
-              Padding="10"
+              Padding="8"
               ToolTip.Tip="Toggle Sidebar"
               Cursor="Hand">
         <Button.Styles>
@@ -127,26 +112,26 @@
             <Setter Property="Background" Value="#333337"/>
           </Style>
         </Button.Styles>
-        <TextBlock Text="☰" FontSize="20" Foreground="#CCC"/>
+        <TextBlock Text="☰" FontSize="18" Foreground="#CCC"/>
       </Button>
     </Border>
 
+    <!-- ═══════════════════════════════════════════
+         MAIN CONTENT
+         ═══════════════════════════════════════════ -->
     <ContentControl Content="{Binding CurrentView}">
       <ContentControl.DataTemplates>
         <DataTemplate DataType="{x:Type vm:WelcomeViewModel}">
-          <views:WelcomeView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:BoardViewModel}">
-          <views:BoardView />
+          <views:WelcomeView/>
         </DataTemplate>
         <DataTemplate DataType="{x:Type vm:NoteEditorViewModel}">
-          <views:NoteEditorView />
+          <views:NoteEditorView/>
         </DataTemplate>
         <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
-          <views:SettingsView />
+          <views:SettingsView/>
         </DataTemplate>
         <DataTemplate DataType="{x:Type vm:CreditsViewModel}">
-          <views:CreditsView />
+          <views:CreditsView/>
         </DataTemplate>
       </ContentControl.DataTemplates>
     </ContentControl>

@@ -1,104 +1,417 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:NoteToolAvalonia.ViewModels"
              x:Class="NoteToolAvalonia.Views.WelcomeView"
              x:DataType="vm:WelcomeViewModel">
 
-  <ScrollViewer Padding="32,24">
-    <StackPanel MaxWidth="900" Spacing="20">
+  <Grid ColumnDefinitions="280,*">
 
-      <StackPanel Margin="0,10,0,20">
-        <TextBlock Text="Welcome to Notey" Classes="section-title"/>
-        <TextBlock Text="Organize and plan your next Project using this tool!"
-                   Classes="subtitle" Margin="0,6,0,0"/>
-      </StackPanel>
+    <!-- ═══════════════════════════════════════════
+         LEFT SIDEBAR — Filters
+         ═══════════════════════════════════════════ -->
+    <Border Grid.Column="0"
+            Background="{StaticResource Brush.Surface}"
+            BorderBrush="{StaticResource Brush.Border}"
+            BorderThickness="0,0,1,0">
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="0" Margin="0,24,0,24">
 
-      <WrapPanel Margin="0,0,0,8">
-        <Border Classes="card" MinWidth="150">
-          <StackPanel>
-            <TextBlock Text="Boards" Classes="subtitle"/>
-            <TextBlock Text="{Binding TotalBoards}" FontSize="28" FontWeight="Bold" Foreground="{StaticResource Brush.TextPrimary}" />
+          <!-- App name -->
+          <StackPanel Margin="24,0,24,28" Spacing="4">
+            <TextBlock Text="Notey"
+                       FontSize="22" FontWeight="Bold"
+                       Foreground="{StaticResource Brush.TextPrimary}"/>
+            <TextBlock Text="Your personal knowledge base"
+                       FontSize="11"
+                       Foreground="{StaticResource Brush.TextSecondary}"/>
           </StackPanel>
-        </Border>
-        <Border Classes="card" MinWidth="150">
-          <StackPanel>
-            <TextBlock Text="Notes" Classes="subtitle"/>
-            <TextBlock Text="{Binding TotalNotes}" FontSize="28" FontWeight="Bold" Foreground="{StaticResource Brush.TextPrimary}" />
-          </StackPanel>
-        </Border>
-      </WrapPanel>
 
-      <DockPanel>
-        <Button DockPanel.Dock="Right" Classes="accent" Command="{Binding ShowCreateBoardCommand}" Margin="12,0,0,0">
-          <StackPanel Orientation="Horizontal" Spacing="6">
-            <TextBlock Text="New Board" VerticalAlignment="Center" MinHeight="40" TextAlignment="Center"/>
-          </StackPanel>
-        </Button>
-        <TextBox Watermark="Search boards..." Text="{Binding SearchText, Mode=TwoWay}"
-                 CornerRadius="6" Padding="12,10"/>
-      </DockPanel>
+          <!-- New Note button -->
+          <Button Command="{Binding ShowCreateNoteCommand}"
+                  Classes="accent"
+                  Margin="16,0,16,28"
+                  HorizontalAlignment="Stretch">
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+              <TextBlock Text="+" FontSize="18" FontWeight="Bold" VerticalAlignment="Center"/>
+              <TextBlock Text="New Note" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
 
-      <Border Classes="card" IsVisible="{Binding IsCreatingBoard}">
-        <StackPanel Spacing="12">
-          <TextBlock Text="Create New Board" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Brush.TextPrimary}" />
-          <TextBox Watermark="Board name..." Text="{Binding NewBoardName, Mode=TwoWay}" Padding="12,10" CornerRadius="6"/>
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <Button Classes="accent" Command="{Binding CreateBoardCommand}" Content="Create" MinHeight="40"/>
-            <Button Classes="ghost" Command="{Binding CancelCreateBoardCommand}" Content="Cancel"/>
+          <!-- Stats row -->
+          <Border Margin="16,0,16,24"
+                  Background="{StaticResource Brush.SurfaceAlt}"
+                  CornerRadius="8" Padding="12,10">
+            <Grid ColumnDefinitions="*,*,*">
+              <StackPanel Grid.Column="0" HorizontalAlignment="Center" Spacing="2">
+                <TextBlock Text="{Binding TotalNotes}"
+                           FontSize="20" FontWeight="Bold"
+                           Foreground="{StaticResource Brush.TextPrimary}"
+                           HorizontalAlignment="Center"/>
+                <TextBlock Text="Total"
+                           FontSize="10"
+                           Foreground="{StaticResource Brush.TextSecondary}"
+                           HorizontalAlignment="Center"/>
+              </StackPanel>
+              <StackPanel Grid.Column="1" HorizontalAlignment="Center" Spacing="2">
+                <TextBlock Text="{Binding CompletedNotes}"
+                           FontSize="20" FontWeight="Bold"
+                           Foreground="{StaticResource Brush.Accent}"
+                           HorizontalAlignment="Center"/>
+                <TextBlock Text="Done"
+                           FontSize="10"
+                           Foreground="{StaticResource Brush.TextSecondary}"
+                           HorizontalAlignment="Center"/>
+              </StackPanel>
+              <StackPanel Grid.Column="2" HorizontalAlignment="Center" Spacing="2">
+                <TextBlock Text="{Binding OverdueNotes}"
+                           FontSize="20" FontWeight="Bold"
+                           Foreground="#ff4757"
+                           HorizontalAlignment="Center"/>
+                <TextBlock Text="Overdue"
+                           FontSize="10"
+                           Foreground="{StaticResource Brush.TextSecondary}"
+                           HorizontalAlignment="Center"/>
+              </StackPanel>
+            </Grid>
+          </Border>
+
+          <Separator Background="{StaticResource Brush.Border}" Margin="16,0,16,20"/>
+
+          <!-- Search -->
+          <StackPanel Margin="16,0,16,20" Spacing="6">
+            <TextBlock Text="SEARCH"
+                       FontSize="10" LetterSpacing="1"
+                       Foreground="{StaticResource Brush.TextSecondary}"/>
+            <TextBox Text="{Binding SearchText, Mode=TwoWay}"
+                     Watermark="Search notes..."
+                     CornerRadius="6" Padding="10,8"/>
           </StackPanel>
+
+          <!-- Category -->
+          <StackPanel Margin="16,0,16,20" Spacing="6">
+            <TextBlock Text="CATEGORY"
+                       FontSize="10" LetterSpacing="1"
+                       Foreground="{StaticResource Brush.TextSecondary}"/>
+            <ComboBox ItemsSource="{Binding Categories}"
+                      SelectedItem="{Binding SelectedCategory, Mode=TwoWay}"
+                      HorizontalAlignment="Stretch"
+                      CornerRadius="6"/>
+          </StackPanel>
+
+          <!-- Deadline filter -->
+          <StackPanel Margin="16,0,16,20" Spacing="6">
+            <TextBlock Text="DEADLINE"
+                       FontSize="10" LetterSpacing="1"
+                       Foreground="{StaticResource Brush.TextSecondary}"/>
+            <ComboBox ItemsSource="{Binding DeadlineFilters}"
+                      SelectedItem="{Binding SelectedDeadlineFilter, Mode=TwoWay}"
+                      HorizontalAlignment="Stretch"
+                      CornerRadius="6"/>
+          </StackPanel>
+
+          <!-- Sort -->
+          <StackPanel Margin="16,0,16,20" Spacing="6">
+            <TextBlock Text="SORT BY"
+                       FontSize="10" LetterSpacing="1"
+                       Foreground="{StaticResource Brush.TextSecondary}"/>
+            <ComboBox ItemsSource="{Binding SortOptions}"
+                      SelectedItem="{Binding SelectedSort, Mode=TwoWay}"
+                      HorizontalAlignment="Stretch"
+                      CornerRadius="6"/>
+          </StackPanel>
+
+          <Separator Background="{StaticResource Brush.Border}" Margin="16,0,16,20"/>
+
+          <!-- Show completed toggle -->
+          <Grid ColumnDefinitions="*,Auto" Margin="16,0,16,0">
+            <TextBlock Grid.Column="0"
+                       Text="Show Completed"
+                       FontSize="13"
+                       Foreground="{StaticResource Brush.TextPrimary}"
+                       VerticalAlignment="Center"/>
+            <ToggleSwitch Grid.Column="1"
+                          IsChecked="{Binding ShowCompleted, Mode=TwoWay}"
+                          OnContent="" OffContent=""/>
+          </Grid>
+
         </StackPanel>
-      </Border>
+      </ScrollViewer>
+    </Border>
 
-      <TextBlock Text="Your Boards" Classes="section-title" Margin="0,8,0,0"/>
+    <!-- ═══════════════════════════════════════════
+         RIGHT — Note Library Grid
+         ═══════════════════════════════════════════ -->
+    <Grid Grid.Column="1" RowDefinitions="*,Auto">
 
-      <Border Classes="card" IsVisible="{Binding !FilteredBoards.Count}" HorizontalAlignment="Center" Margin="0,30">
-        <StackPanel HorizontalAlignment="Center" Spacing="8">
-          <TextBlock Text="No boards yet" FontSize="18" Foreground="{StaticResource Brush.TextSecondary}" HorizontalAlignment="Center"/>
-          <TextBlock Text="Click 'New Board' to get started!" FontSize="13" Foreground="{StaticResource Brush.TextSecondary}" HorizontalAlignment="Center"/>
-        </StackPanel>
-      </Border>
+      <!-- Note cards -->
+      <ScrollViewer Grid.Row="0" Padding="24">
+        <StackPanel Spacing="0">
 
-      <ItemsControl ItemsSource="{Binding FilteredBoards}">
-        <ItemsControl.ItemTemplate>
-          <DataTemplate>
-            <Border Classes="card" Margin="0,0,0,4" Cursor="Hand">
-              <DockPanel>
-                <Button DockPanel.Dock="Right"
-                        Classes="ghost"
-                        Command="{ReflectionBinding DataContext.DeleteBoardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                        CommandParameter="{Binding}"
-                        FontSize="16"
-                        ToolTip.Tip="Delete board"
-                        Content="🗑">
-                  <Button.Styles>
-                    <Style Selector="Button:pointerover /template/ ContentPresenter">
-                      <Setter Property="Foreground" Value="{StaticResource Brush.Accent}"/>
+          <!-- Empty state -->
+          <Border IsVisible="{Binding !FilteredNotes.Count}"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Margin="0,80,0,0">
+            <StackPanel Spacing="12" HorizontalAlignment="Center">
+              <TextBlock Text="📝"
+                         FontSize="48"
+                         HorizontalAlignment="Center"/>
+              <TextBlock Text="No notes found"
+                         FontSize="18" FontWeight="SemiBold"
+                         Foreground="{StaticResource Brush.TextPrimary}"
+                         HorizontalAlignment="Center"/>
+              <TextBlock Text="Create a new note or adjust your filters"
+                         FontSize="13"
+                         Foreground="{StaticResource Brush.TextSecondary}"
+                         HorizontalAlignment="Center"/>
+            </StackPanel>
+          </Border>
+
+          <!-- Cards -->
+          <ItemsControl ItemsSource="{Binding FilteredNotes}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel/>
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border Width="260" Height="180"
+                        Margin="0,0,16,16"
+                        Background="{StaticResource Brush.Surface}"
+                        BorderBrush="{StaticResource Brush.Border}"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Cursor="Hand"
+                        Tapped="NoteCard_Tapped">
+                  <Border.Styles>
+                    <Style Selector="Border:pointerover">
+                      <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
+                      <Setter Property="Background"   Value="{StaticResource Brush.SurfaceAlt}"/>
                     </Style>
-                  </Button.Styles>
-                </Button>
+                    <Style Selector="Border">
+                      <Setter Property="Transitions">
+                        <Transitions>
+                          <BrushTransition Property="BorderBrush" Duration="0:0:0.15"/>
+                          <BrushTransition Property="Background"  Duration="0:0:0.15"/>
+                        </Transitions>
+                      </Setter>
+                    </Style>
+                  </Border.Styles>
 
-                <Border Background="Transparent" Cursor="Hand" Tapped="BoardCard_Tapped">
-                  <StackPanel Spacing="6">
-                    <TextBlock Text="{Binding Name}" 
-                               FontSize="18" 
-                               FontWeight="SemiBold" 
-                               Foreground="{StaticResource Brush.TextPrimary}"/>
-                    <StackPanel Orientation="Horizontal" Spacing="16">
-                      <TextBlock Text="{Binding Columns.Count, StringFormat='{}{0} columns'}" 
-                                 Foreground="{StaticResource Brush.TextSecondary}" 
-                                 FontSize="12"/>
-                      <TextBlock Text="{Binding LastModified, StringFormat='{}{0:MMM dd, yyyy}'}" 
-                                 Foreground="{StaticResource Brush.TextSecondary}" 
-                                 FontSize="12"/>
+                  <Grid RowDefinitions="Auto,*,Auto" Margin="16,14,16,14">
+
+                    <!-- Top: category badge + delete -->
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                      <Border Grid.Column="0"
+                              Background="{StaticResource Brush.Accent}"
+                              CornerRadius="4" Padding="6,2"
+                              HorizontalAlignment="Left"
+                              IsVisible="{Binding Category,
+                                Converter={x:Static NoteToolAvalonia.Converters.StringNotEmptyConverter.Instance}}">
+                        <TextBlock Text="{Binding Category}"
+                                   FontSize="10" FontWeight="SemiBold"
+                                   Foreground="White"/>
+                      </Border>
+                      <Button Grid.Column="1"
+                              Command="{Binding $parent[ItemsControl].((vm:WelcomeViewModel)DataContext).DeleteNoteCommand}"
+                              CommandParameter="{Binding}"
+                              Background="Transparent"
+                              BorderThickness="0"
+                              Padding="4"
+                              Cursor="Hand"
+                              ToolTip.Tip="Delete note">
+                        <TextBlock Text="🗑" FontSize="12"
+                                   Foreground="{StaticResource Brush.TextSecondary}"/>
+                      </Button>
+                    </Grid>
+
+                    <!-- Middle: title + tags -->
+                    <StackPanel Grid.Row="1" Spacing="6" VerticalAlignment="Center">
+                      <TextBlock Text="{Binding Title}"
+                                 FontSize="15" FontWeight="SemiBold"
+                                 Foreground="{StaticResource Brush.TextPrimary}"
+                                 TextWrapping="Wrap"
+                                 MaxLines="2"
+                                 TextTrimming="CharacterEllipsis"/>
+                      <!-- Tag chips (first 3) -->
+                      <ItemsControl ItemsSource="{Binding Tags}">
+                        <ItemsControl.ItemsPanel>
+                          <ItemsPanelTemplate>
+                            <WrapPanel/>
+                          </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <Border Background="{StaticResource Brush.SurfaceAlt}"
+                                    CornerRadius="4" Padding="5,2" Margin="0,0,4,4">
+                              <TextBlock Text="{Binding}"
+                                         FontSize="10"
+                                         Foreground="{StaticResource Brush.TextSecondary}"/>
+                            </Border>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
                     </StackPanel>
-                  </StackPanel>
-                </Border>
-              </DockPanel>
-            </Border>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
 
-    </StackPanel>
-  </ScrollViewer>
+                    <!-- Bottom: deadline + last modified -->
+                    <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+                      <!-- Deadline pill -->
+                      <Border Grid.Column="0"
+                              IsVisible="{Binding Deadline,
+                                Converter={x:Static NoteToolAvalonia.Converters.DeadlineVisibilityConverter.Instance}}"
+                              Background="#33ff4757"
+                              CornerRadius="4" Padding="5,2"
+                              HorizontalAlignment="Left">
+                        <TextBlock Text="{Binding Deadline,
+                                     Converter={x:Static NoteToolAvalonia.Converters.DeadlineTextConverter.Instance}}"
+                                   FontSize="10"
+                                   Foreground="#ff4757"/>
+                      </Border>
+                      <TextBlock Grid.Column="1"
+                                 Text="{Binding LastModified, StringFormat='MMM dd'}"
+                                 FontSize="10"
+                                 Foreground="{StaticResource Brush.TextSecondary}"
+                                 VerticalAlignment="Bottom"/>
+                    </Grid>
+
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+        </StackPanel>
+      </ScrollViewer>
+
+    </Grid>
+
+    <!-- ═══════════════════════════════════════════
+         NOTE CREATOR OVERLAY
+         ═══════════════════════════════════════════ -->
+    <Border Grid.Column="0" Grid.ColumnSpan="2"
+            IsVisible="{Binding IsCreatingNote}"
+            Background="#CC000000">
+      <Border Width="480"
+              Background="{StaticResource Brush.Surface}"
+              CornerRadius="16"
+              Padding="40,36"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              BorderBrush="{StaticResource Brush.Border}"
+              BorderThickness="1">
+        <StackPanel Spacing="28">
+
+          <!-- Header -->
+          <StackPanel Spacing="4">
+            <TextBlock Text="New Note"
+                       FontSize="24" FontWeight="Bold"
+                       Foreground="{StaticResource Brush.TextPrimary}"/>
+            <TextBlock Foreground="{StaticResource Brush.TextSecondary}" FontSize="13">
+              <Run Text="Step "/>
+              <Run Text="{Binding CreatorStep}"/>
+              <Run Text=" of 4"/>
+            </TextBlock>
+          </StackPanel>
+
+          <!-- Step 1: Title -->
+          <StackPanel Spacing="8" IsVisible="{Binding CreatorStep,
+                        Converter={x:Static NoteToolAvalonia.Converters.IntEqualsConverter.Instance},
+                        ConverterParameter=1}">
+            <TextBlock Text="What's your note about?"
+                       FontSize="15" FontWeight="SemiBold"
+                       Foreground="{StaticResource Brush.TextPrimary}"/>
+            <TextBox Text="{Binding NewNoteTitle, Mode=TwoWay}"
+                     Watermark="Note title..."
+                     FontSize="15"
+                     Padding="14,12" CornerRadius="8"/>
+          </StackPanel>
+
+          <!-- Step 2: Category -->
+          <StackPanel Spacing="8" IsVisible="{Binding CreatorStep,
+                        Converter={x:Static NoteToolAvalonia.Converters.IntEqualsConverter.Instance},
+                        ConverterParameter=2}">
+            <TextBlock Text="Which category does it belong to?"
+                       FontSize="15" FontWeight="SemiBold"
+                       Foreground="{StaticResource Brush.TextPrimary}"/>
+            <TextBlock Text="e.g. Work, Personal, Research..."
+                       FontSize="12"
+                       Foreground="{StaticResource Brush.TextSecondary}"/>
+            <TextBox Text="{Binding NewNoteCategory, Mode=TwoWay}"
+                     Watermark="Category (optional)..."
+                     Padding="14,12" CornerRadius="8"/>
+          </StackPanel>
+
+          <!-- Step 3: Tags -->
+          <StackPanel Spacing="8" IsVisible="{Binding CreatorStep,
+                        Converter={x:Static NoteToolAvalonia.Converters.IntEqualsConverter.Instance},
+                        ConverterParameter=3}">
+            <TextBlock Text="Add some tags"
+                       FontSize="15" FontWeight="SemiBold"
+                       Foreground="{StaticResource Brush.TextPrimary}"/>
+            <TextBlock Text="Comma-separated — e.g. design, ux, prototype"
+                       FontSize="12"
+                       Foreground="{StaticResource Brush.TextSecondary}"/>
+            <TextBox Text="{Binding NewNoteTags, Mode=TwoWay}"
+                     Watermark="Tags (optional)..."
+                     Padding="14,12" CornerRadius="8"/>
+          </StackPanel>
+
+          <!-- Step 4: Deadline -->
+          <StackPanel Spacing="8" IsVisible="{Binding CreatorStep,
+                        Converter={x:Static NoteToolAvalonia.Converters.IntEqualsConverter.Instance},
+                        ConverterParameter=4}">
+            <TextBlock Text="Set a deadline?"
+                       FontSize="15" FontWeight="SemiBold"
+                       Foreground="{StaticResource Brush.TextPrimary}"/>
+            <TextBlock Text="Enter a date like 2026-07-15 or leave blank to skip"
+                       FontSize="12"
+                       Foreground="{StaticResource Brush.TextSecondary}"/>
+            <TextBox Text="{Binding NewNoteDeadline, Mode=TwoWay}"
+                     Watermark="YYYY-MM-DD (optional)..."
+                     Padding="14,12" CornerRadius="8"/>
+          </StackPanel>
+
+          <!-- Nav buttons -->
+          <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+            <Button Grid.Column="0"
+                    Command="{Binding CancelCreateNoteCommand}"
+                    Classes="ghost"
+                    Content="Cancel"
+                    Padding="16,10"/>
+            <Button Grid.Column="2"
+                    Command="{Binding CreatorBackCommand}"
+                    Classes="ghost"
+                    Content="← Back"
+                    Padding="16,10"
+                    IsVisible="{Binding CreatorStep,
+                      Converter={x:Static NoteToolAvalonia.Converters.IntGreaterThanConverter.Instance},
+                      ConverterParameter=1}"/>
+            <!-- Next (steps 1-3) -->
+            <Button Grid.Column="3"
+                    Command="{Binding CreatorNextCommand}"
+                    Classes="accent"
+                    Content="Next →"
+                    Padding="16,10"
+                    Margin="8,0,0,0"
+                    IsVisible="{Binding CreatorStep,
+                      Converter={x:Static NoteToolAvalonia.Converters.IntLessThanConverter.Instance},
+                      ConverterParameter=4}"/>
+            <!-- Create (step 4) -->
+            <Button Grid.Column="3"
+                    Command="{Binding CreateNoteCommand}"
+                    Classes="accent"
+                    Content="Create Note"
+                    Padding="16,10"
+                    Margin="8,0,0,0"
+                    IsVisible="{Binding CreatorStep,
+                      Converter={x:Static NoteToolAvalonia.Converters.IntEqualsConverter.Instance},
+                      ConverterParameter=4}"/>
+          </Grid>
+
+        </StackPanel>
+      </Border>
+    </Border>
+
+  </Grid>
 </UserControl>

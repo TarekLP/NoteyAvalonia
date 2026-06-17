@@ -1,99 +1,71 @@
-﻿using Avalonia;
-using Avalonia.Data.Converters;
+using Avalonia;
 using Avalonia.Styling;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NoteToolAvalonia.Models;
 using NoteToolAvalonia.Services;
-using System;
-using System.Globalization;
 
 namespace NoteToolAvalonia.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
-	private readonly NavigationService _navigation;
+    private readonly NoteyService _service;
 
-	public DataService DataService { get; }
+    [ObservableProperty] private ViewModelBase? _currentView;
+    [ObservableProperty] private string _title = "Notey";
+    [ObservableProperty] private bool _isSidebarVisible = true;
+    [ObservableProperty] private string _currentFontFamily = "Inter";
+    [ObservableProperty] private int _currentFontSize = 15;
 
-	[ObservableProperty]
-	private ViewModelBase? _currentView;
+    public MainWindowViewModel(NoteyService service)
+    {
+        _service = service;
+        ApplyAppSettings();
+    }
 
-	[ObservableProperty]
-	private string _title = "Notey";
+    public void ApplyAppSettings()
+    {
+        var settings = _service.LoadSettings();
+        CurrentFontFamily = settings.FontFamily;
+        CurrentFontSize = settings.FontSize;
 
-	[ObservableProperty]
-	private bool _isSidebarVisible = true;
+        if (Application.Current != null)
+        {
+            Application.Current.RequestedThemeVariant = settings.Theme switch
+            {
+                "Light"  => ThemeVariant.Light,
+                "Dark"   => ThemeVariant.Dark,
+                _        => ThemeVariant.Default
+            };
+        }
+    }
 
-	[ObservableProperty]
-	private string _currentFontFamily = "Inter";
+    public void NavigateToWelcome()
+    {
+        CurrentView = new WelcomeViewModel(_service);
+        Title = "Notey";
+    }
 
-	[ObservableProperty]
-	private int _currentFontSize = 14;
+    public void NavigateToNoteEditor(NoteCard card)
+    {
+        CurrentView = new NoteEditorViewModel(card, _service);
+        Title = $"Notey — {card.Title}";
+    }
 
-	public MainWindowViewModel(NavigationService navigation, DataService dataService)
-	{
-		_navigation = navigation;
-		DataService = dataService;
+    public void NavigateToSettings()
+    {
+        CurrentView = new SettingsViewModel(_service);
+        Title = "Notey — Settings";
+    }
 
-		ApplyAppSettings();
-		NavigateToWelcome();
-	}
+    public void NavigateToCredits()
+    {
+        CurrentView = new CreditsViewModel();
+        Title = "Notey — Credits";
+    }
 
-	public void ApplyAppSettings()
-	{
-		var settings = DataService.LoadSettings();
-
-		CurrentFontFamily = settings.FontFamily;
-		CurrentFontSize = settings.FontSize;
-
-		if (Application.Current != null)
-		{
-			Application.Current.RequestedThemeVariant = settings.Theme switch
-			{
-				"Light" => ThemeVariant.Light,
-				"Dark" => ThemeVariant.Dark,
-				_ => ThemeVariant.Default
-			};
-		}
-	}
-
-	[RelayCommand]
-	public void ToggleSidebar()
-	{
-		IsSidebarVisible = !IsSidebarVisible;
-	}
-
-	[RelayCommand]
-	public void NavigateToWelcome()
-	{
-		CurrentView = new WelcomeViewModel(_navigation, DataService);
-		Title = "Notey - Welcome";
-	}
-
-	public void NavigateToBoard(Board board)
-	{
-		CurrentView = new BoardViewModel(board, _navigation, DataService);
-		Title = $"Notey - {board.Name}";
-	}
-
-	public void NavigateToNoteEditor(NoteCard card, Board board, BoardColumn column)
-	{
-		CurrentView = new NoteEditorViewModel(card, board, column, _navigation, DataService);
-		Title = $"Notey - Editing: {card.Title}";
-	}
-
-	[RelayCommand]
-	public void NavigateToSettings()
-	{
-		CurrentView = new SettingsViewModel(DataService, _navigation);
-		Title = "Notey - Settings";
-	}
-
-	[RelayCommand]
-	public void NavigateToCredits()
-	{
-		CurrentView = new CreditsViewModel();
-		Title = "Notey - Credits";
-	}
+    [RelayCommand] private void GoHome()     => NavigateToWelcome();
+    [RelayCommand] private void GoSettings() => NavigateToSettings();
+    [RelayCommand] private void GoCredits()  => NavigateToCredits();
+    [RelayCommand] private void ToggleSidebar() => IsSidebarVisible = !IsSidebarVisible;
 }

@@ -413,6 +413,12 @@ public class NoteyService : INoteyNavigator
     /// </summary>
     public EditHistory History => _editHistory;
 
+    /// <summary>The root folder where all Notey data lives.</summary>
+    public string DataFolder => _dataFolder;
+
+    /// <summary>Folder containing individual .md note files.</summary>
+    public string NotesFolder => _notesFolder;
+
     // ══════════════════════════════════════════════════════
     //  REGION: FILE I/O HELPERS
     // ══════════════════════════════════════════════════════

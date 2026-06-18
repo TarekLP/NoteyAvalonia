@@ -68,8 +68,8 @@ public class MarkdownColorizingTransformer : DocumentColorizingTransformer
         ChangeLinePart(line.Offset, line.EndOffset, el =>
         {
             el.TextRunProperties.SetForegroundBrush(new SolidColorBrush(color));
-            el.TextRunProperties.SetFontWeight(weight);
-            if (extraSize > 0)
+            el.TextRunProperties.SetFontRenderingEmSize(((double)weight));
+			if (extraSize > 0)
             {
                 var tf = el.TextRunProperties.Typeface;
                 el.TextRunProperties.SetTypeface(new Typeface(tf.FontFamily, tf.Style, weight));
@@ -105,8 +105,8 @@ public class MarkdownColorizingTransformer : DocumentColorizingTransformer
 
             ChangeLinePart(absO, absC, el =>
             {
-                el.TextRunProperties.SetFontWeight(weight);
-                if (color.HasValue)
+                el.TextRunProperties.SetFontRenderingEmSize(((double)weight));
+				if (color.HasValue)
                     el.TextRunProperties.SetForegroundBrush(new SolidColorBrush(color.Value));
             });
             start = c + close.Length;

@@ -7,7 +7,26 @@ namespace NoteToolAvalonia.Views;
 
 public partial class WelcomeView : UserControl
 {
-    public WelcomeView() { InitializeComponent(); }
+    public WelcomeView()
+    {
+        InitializeComponent();
+        AddHandler(KeyDownEvent, OnKeyDown, handledEventsToo: true);
+    }
+
+    // Press Enter to advance the creator wizard, or create on the last step
+    private void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        if (DataContext is not WelcomeViewModel vm) return;
+        if (!vm.IsCreatingNote) return;
+
+        if (vm.CreatorStep < 4)
+            vm.CreatorNextCommand.Execute(null);
+        else
+            vm.CreateNoteCommand.Execute(null);
+
+        e.Handled = true;
+    }
 
     private void NoteCard_Tapped(object? sender, TappedEventArgs e)
     {

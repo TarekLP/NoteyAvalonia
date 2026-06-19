@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using System.Globalization;
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data.Converters;
 using Avalonia.Input;
@@ -14,189 +13,117 @@ using NoteToolAvalonia.ViewModels;
 
 namespace NoteToolAvalonia.Views;
 
-// ── Converter: bool → TextWrapping ──────────────────────────
+// ── bool → TextWrapping ─────────────────────────────────────
 public class BoolToTextWrappingConverter : IValueConverter
 {
     public object? Convert(object? v, Type t, object? p, CultureInfo c) =>
-        v is true ? TextWrapping.Wrap : TextWrapping.NoWrap;
+        v is true ? Avalonia.Media.TextWrapping.Wrap : Avalonia.Media.TextWrapping.NoWrap;
     public object? ConvertBack(object? v, Type t, object? p, CultureInfo c) =>
         throw new NotImplementedException();
 }
 
 // ════════════════════════════════════════════════════════════
 //  MARKDOWN COLORIZING TRANSFORMER
-//
-//  Runs on every visible line inside AvaloniaEdit and applies
-//  colour / weight changes so the markdown syntax looks styled
-//  directly in the editor — no separate preview pane needed.
-//
-//  This class is self-contained: copy it + wire it to any
-//  AvaloniaEdit TextEditor and it just works.
 // ════════════════════════════════════════════════════════════
 public class MarkdownColorizingTransformer : DocumentColorizingTransformer
 {
-    // Colours matching the app's dark theme
-    private static readonly Color HeadingColor  = Color.Parse("#c792ea"); // soft purple
-    private static readonly Color CodeColor     = Color.Parse("#89ddff"); // cyan
-    private static readonly Color LinkColor     = Color.Parse("#82aaff"); // blue
-    private static readonly Color QuoteColor    = Color.Parse("#546e7a"); // muted
-    private static readonly Color CheckDoneColor= Color.Parse("#2ed573"); // green
+    private static readonly Color HeadingColor   = Color.Parse("#c792ea");
+    private static readonly Color CodeColor      = Color.Parse("#89ddff");
+    private static readonly Color LinkColor      = Color.Parse("#82aaff");
+    private static readonly Color QuoteColor     = Color.Parse("#546e7a");
+    private static readonly Color CheckDoneColor = Color.Parse("#2ed573");
 
     protected override void ColorizeLine(DocumentLine line)
     {
         var text = CurrentContext.Document.GetText(line.Offset, line.Length);
         if (text.Length == 0) return;
 
-        // Headings: # / ## / ###
-        if (text.StartsWith("###"))      ApplyLine(line, HeadingColor, FontWeight.Bold, 15);
-        else if (text.StartsWith("##")) ApplyLine(line, HeadingColor, FontWeight.Bold, 18);
-        else if (text.StartsWith("#"))  ApplyLine(line, HeadingColor, FontWeight.Bold, 22);
-
-        // Blockquote
-        else if (text.StartsWith("> ")) ApplyLine(line, QuoteColor, FontWeight.Normal, 0);
-
-        // Completed checklist item
+        if      (text.StartsWith("### ")) ApplyLine(line, HeadingColor, FontWeight.Bold);
+        else if (text.StartsWith("## "))  ApplyLine(line, HeadingColor, FontWeight.Bold);
+        else if (text.StartsWith("# "))   ApplyLine(line, HeadingColor, FontWeight.Bold);
+        else if (text.StartsWith("> "))   ApplyLine(line, QuoteColor,   FontWeight.Normal);
         else if (text.TrimStart().StartsWith("- [x]", StringComparison.OrdinalIgnoreCase))
-            ApplyLine(line, CheckDoneColor, FontWeight.Normal, 0);
+            ApplyLine(line, CheckDoneColor, FontWeight.Normal);
 
-        // Inline spans: bold, italic, code, links
-        ApplyInlineSpans(line, text);
-    }
-
-    private void ApplyLine(DocumentLine line, Color color, FontWeight weight, double extraSize)
-    {
-        ChangeLinePart(line.Offset, line.EndOffset, el =>
-        {
-            el.TextRunProperties.SetForegroundBrush(new SolidColorBrush(color));
-            el.TextRunProperties.SetFontRenderingEmSize(((double)weight));
-			if (extraSize > 0)
-            {
-                var tf = el.TextRunProperties.Typeface;
-                el.TextRunProperties.SetTypeface(new Typeface(tf.FontFamily, tf.Style, weight));
-            }
-        });
-    }
-
-    private void ApplyInlineSpans(DocumentLine line, string text)
-    {
-        // Bold **…**
-        ApplyPattern(line, text, "**", "**", FontWeight.Bold, null);
-        // Italic *…*  (single star, avoid double)
-        ApplyItalic(line, text);
-        // Inline code `…`
+        ApplyBold(line, text);
         ApplyCode(line, text);
-        // Links [text](url)
         ApplyLinks(line, text);
     }
 
-    private void ApplyPattern(DocumentLine line, string text,
-        string open, string close, FontWeight weight, Color? color)
+    private void ApplyLine(DocumentLine line, Color color, FontWeight weight) =>
+        ChangeLinePart(line.Offset, line.EndOffset, el =>
+        {
+            el.TextRunProperties.SetForegroundBrush(new SolidColorBrush(color));
+            el.TextRunProperties.SetFontWeight(weight);
+        });
+
+    private void ApplyBold(DocumentLine line, string text)
     {
-        int start = 0;
+        int s = 0;
         while (true)
         {
-            int o = text.IndexOf(open,  start, StringComparison.Ordinal);
-            if (o < 0) break;
-            int c = text.IndexOf(close, o + open.Length, StringComparison.Ordinal);
-            if (c < 0) break;
-
-            int absO = line.Offset + o;
-            int absC = line.Offset + c + close.Length;
-
-            ChangeLinePart(absO, absC, el =>
-            {
-                el.TextRunProperties.SetFontRenderingEmSize(((double)weight));
-				if (color.HasValue)
-                    el.TextRunProperties.SetForegroundBrush(new SolidColorBrush(color.Value));
-            });
-            start = c + close.Length;
-        }
-    }
-
-    private void ApplyItalic(DocumentLine line, string text)
-    {
-        int start = 0;
-        while (true)
-        {
-            int o = text.IndexOf('*', start);
-            if (o < 0) break;
-            // Skip ** bold markers
-            if (o + 1 < text.Length && text[o + 1] == '*') { start = o + 2; continue; }
-            int c = text.IndexOf('*', o + 1);
-            if (c < 0) break;
-            if (c + 1 < text.Length && text[c + 1] == '*') { start = c + 2; continue; }
-
-            int absO = line.Offset + o;
-            int absC = line.Offset + c + 1;
-            ChangeLinePart(absO, absC, el =>
-            {
-                var tf = el.TextRunProperties.Typeface;
-                el.TextRunProperties.SetTypeface(
-                    new Typeface(tf.FontFamily, FontStyle.Italic, tf.Weight));
-            });
-            start = c + 1;
+            int o = text.IndexOf("**", s, StringComparison.Ordinal); if (o < 0) break;
+            int c = text.IndexOf("**", o + 2, StringComparison.Ordinal); if (c < 0) break;
+            ChangeLinePart(line.Offset + o, line.Offset + c + 2,
+                el => el.TextRunProperties.SetFontWeight(FontWeight.Bold));
+            s = c + 2;
         }
     }
 
     private void ApplyCode(DocumentLine line, string text)
     {
-        int start = 0;
+        int s = 0;
         while (true)
         {
-            int o = text.IndexOf('`', start);
-            if (o < 0) break;
-            int c = text.IndexOf('`', o + 1);
-            if (c < 0) break;
-
-            int absO = line.Offset + o;
-            int absC = line.Offset + c + 1;
-            ChangeLinePart(absO, absC, el =>
-                el.TextRunProperties.SetForegroundBrush(new SolidColorBrush(CodeColor)));
-            start = c + 1;
+            int o = text.IndexOf('`', s); if (o < 0) break;
+            int c = text.IndexOf('`', o + 1); if (c < 0) break;
+            ChangeLinePart(line.Offset + o, line.Offset + c + 1,
+                el => el.TextRunProperties.SetForegroundBrush(new SolidColorBrush(CodeColor)));
+            s = c + 1;
         }
     }
 
     private void ApplyLinks(DocumentLine line, string text)
     {
-        int start = 0;
+        int s = 0;
         while (true)
         {
-            int ob = text.IndexOf('[', start);
-            if (ob < 0) break;
-            int cb = text.IndexOf(']', ob);
-            if (cb < 0) break;
-            if (cb + 1 >= text.Length || text[cb + 1] != '(') { start = cb + 1; continue; }
-            int cp = text.IndexOf(')', cb + 2);
-            if (cp < 0) break;
-
-            int absO = line.Offset + ob;
-            int absC = line.Offset + cp + 1;
-            ChangeLinePart(absO, absC, el =>
+            int ob = text.IndexOf('[', s); if (ob < 0) break;
+            int cb = text.IndexOf(']', ob); if (cb < 0) break;
+            if (cb + 1 >= text.Length || text[cb + 1] != '(') { s = cb + 1; continue; }
+            int cp = text.IndexOf(')', cb + 2); if (cp < 0) break;
+            ChangeLinePart(line.Offset + ob, line.Offset + cp + 1, el =>
             {
                 el.TextRunProperties.SetForegroundBrush(new SolidColorBrush(LinkColor));
                 el.TextRunProperties.SetTextDecorations(TextDecorations.Underline);
             });
-            start = cp + 1;
+            s = cp + 1;
         }
     }
 }
 
 // ════════════════════════════════════════════════════════════
-//  NOTE EDITOR VIEW — code-behind
+//  NOTE EDITOR VIEW
 // ════════════════════════════════════════════════════════════
 public partial class NoteEditorView : UserControl
 {
-    private TextEditor?  _editor;
-    private TextBlock?   _lineNumbers;
-    private bool         _updatingFromVm; // prevents feedback loops
+    private TextEditor? _editor;
+    private TextBlock?  _lineNumbers;
+    private bool        _updatingFromVm;
 
-    // Toolbar buttons wired in OnAttachedToVisualTree
     private Button? _boldBtn, _italicBtn, _strikeBtn, _codeBtn;
     private Button? _h1Btn, _h2Btn, _h3Btn;
     private Button? _bulletBtn, _numberedBtn, _checklistBtn, _quoteBtn;
     private Button? _tableBtn, _hrBtn;
 
-    public NoteEditorView() => InitializeComponent();
+    public NoteEditorView()
+    {
+        InitializeComponent();
+
+        // DataContextChanged fires after the template applies the ViewModel,
+        // guaranteeing DataContext is non-null when we set up the document.
+        DataContextChanged += OnDataContextChanged;
+    }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
@@ -207,51 +134,66 @@ public partial class NoteEditorView : UserControl
 
         if (_editor == null) return;
 
-        // Attach the live-markdown colorizer
+        // Fresh document prevents the input-blocked state that occurs when
+        // AvaloniaEdit receives a null/shared document at construction time.
+        _editor.Document = new TextDocument();
+
+        _editor.TextArea.TextView.LineTransformers.Clear();
         _editor.TextArea.TextView.LineTransformers.Add(new MarkdownColorizingTransformer());
 
-        // Sync editor → ViewModel
-        _editor.TextArea.Document.TextChanged += (_, _) =>
-        {
-            if (_updatingFromVm) return;
-            if (DataContext is NoteEditorViewModel vm)
-                vm.NoteContent = _editor.Text;
-            UpdateLineNumbers();
-        };
-
-        // Sync ViewModel → editor (initial load + undo/redo)
-        if (DataContext is NoteEditorViewModel { NoteContent: var initial })
-        {
-            _updatingFromVm = true;
-            _editor.Text    = initial ?? string.Empty;
-            _updatingFromVm = false;
-        }
-
-        // Watch VM for external content changes (undo/redo)
-        DataContextChanged += (_, _) =>
-        {
-            if (DataContext is NoteEditorViewModel vm2)
-            {
-                vm2.PropertyChanged += (_, args) =>
-                {
-                    if (args.PropertyName == nameof(NoteEditorViewModel.NoteContent) && !_updatingFromVm)
-                    {
-                        _updatingFromVm = true;
-                        _editor.Text    = vm2.NoteContent ?? string.Empty;
-                        _updatingFromVm = false;
-                    }
-                };
-            }
-        };
-
-        // Keyboard shortcuts
         AddHandler(KeyDownEvent, OnKeyDown, handledEventsToo: true);
-
-        // Wire toolbar buttons
         FindToolbarButtons();
         WireToolbarButtons();
 
+        // DataContext may already be set — load content now if so.
+        LoadContentFromVm();
+    }
+
+    private void OnDataContextChanged(object? sender, EventArgs e)
+    {
+        if (DataContext is not NoteEditorViewModel vm) return;
+
+        // Watch for undo/redo pushing new content in from the VM side
+        vm.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(NoteEditorViewModel.NoteContent) && !_updatingFromVm)
+                LoadContentFromVm();
+        };
+
+        // Load content — may be a no-op if visual tree isn't ready yet;
+        // OnAttachedToVisualTree will call it again when ready.
+        LoadContentFromVm();
+    }
+
+    /// <summary>
+    /// Pushes NoteContent from the ViewModel into the editor document.
+    /// Assigns a fresh TextDocument each time to guarantee input works.
+    /// Safe to call at any point — guards against null editor/DataContext.
+    /// </summary>
+    private void LoadContentFromVm()
+    {
+        if (_editor == null) return;
+        if (DataContext is not NoteEditorViewModel vm) return;
+
+        _updatingFromVm  = true;
+        _editor.Document = new TextDocument(vm.NoteContent ?? string.Empty);
+
+        // Re-attach TextChanged after replacing the document
+        _editor.TextArea.Document.TextChanged += (_, _) =>
+        {
+            if (_updatingFromVm) return;
+            if (DataContext is NoteEditorViewModel v)
+                v.NoteContent = _editor.Text;
+            UpdateLineNumbers();
+        };
+
+        _updatingFromVm = false;
         UpdateLineNumbers();
+
+        // Focus the editor so the user can type immediately
+        Avalonia.Threading.Dispatcher.UIThread.Post(
+            () => _editor.Focus(),
+            Avalonia.Threading.DispatcherPriority.Loaded);
     }
 
     // ── Keyboard shortcuts ──────────────────────────────────
@@ -264,11 +206,11 @@ public partial class NoteEditorView : UserControl
         {
             switch (e.Key)
             {
-                case Key.Z: vm.UndoCommand.Execute(null);              e.Handled = true; break;
-                case Key.Y: vm.RedoCommand.Execute(null);              e.Handled = true; break;
-                case Key.S: vm.SaveCommand.Execute(null);              e.Handled = true; break;
-                case Key.B: WrapSelection("**", "**");                 e.Handled = true; break;
-                case Key.I: WrapSelection("*", "*");                   e.Handled = true; break;
+                case Key.Z: vm.UndoCommand.Execute(null);                 e.Handled = true; break;
+                case Key.Y: vm.RedoCommand.Execute(null);                 e.Handled = true; break;
+                case Key.S: vm.SaveCommand.Execute(null);                 e.Handled = true; break;
+                case Key.B: WrapSelection("**", "**");                    e.Handled = true; break;
+                case Key.I: WrapSelection("*",  "*");                     e.Handled = true; break;
                 case Key.H:
                 case Key.F: vm.ShowFindReplacePanelCommand.Execute(null); e.Handled = true; break;
             }
@@ -283,7 +225,7 @@ public partial class NoteEditorView : UserControl
         }
     }
 
-    // ── Toolbar wiring ──────────────────────────────────────
+    // ── Toolbar ─────────────────────────────────────────────
 
     private void FindToolbarButtons()
     {
@@ -305,9 +247,9 @@ public partial class NoteEditorView : UserControl
     private void WireToolbarButtons()
     {
         _boldBtn?.Click      += (_, _) => WrapSelection("**", "**");
-        _italicBtn?.Click    += (_, _) => WrapSelection("*", "*");
+        _italicBtn?.Click    += (_, _) => WrapSelection("*",  "*");
         _strikeBtn?.Click    += (_, _) => WrapSelection("~~", "~~");
-        _codeBtn?.Click      += (_, _) => WrapSelection("`", "`");
+        _codeBtn?.Click      += (_, _) => WrapSelection("`",  "`");
         _h1Btn?.Click        += (_, _) => PrependLine("# ");
         _h2Btn?.Click        += (_, _) => PrependLine("## ");
         _h3Btn?.Click        += (_, _) => PrependLine("### ");
@@ -319,25 +261,20 @@ public partial class NoteEditorView : UserControl
         _hrBtn?.Click        += (_, _) => InsertAtCursor("\n---\n");
     }
 
-    // ── Editor helpers ──────────────────────────────────────
+    // ── Text helpers ────────────────────────────────────────
 
-    /// <summary>
-    /// Wraps the selected text with open/close markers.
-    /// If nothing is selected, inserts the markers at the cursor.
-    /// </summary>
     private void WrapSelection(string open, string close)
     {
         if (_editor == null) return;
         var sel = _editor.TextArea.Selection;
-
         if (!sel.IsEmpty)
         {
-            var start   = _editor.Document.GetOffset(sel.StartPosition.Location);
-            var end     = _editor.Document.GetOffset(sel.EndPosition.Location);
-            if (start > end) (start, end) = (end, start);
-            var selected = _editor.Document.GetText(start, end - start);
-            _editor.Document.Replace(start, end - start, open + selected + close);
-            _editor.TextArea.Caret.Offset = start + open.Length + selected.Length;
+            var s    = _editor.Document.GetOffset(sel.StartPosition.Location);
+            var end  = _editor.Document.GetOffset(sel.EndPosition.Location);
+            if (s > end) (s, end) = (end, s);
+            var selected = _editor.Document.GetText(s, end - s);
+            _editor.Document.Replace(s, end - s, open + selected + close);
+            _editor.TextArea.Caret.Offset = s + open.Length + selected.Length;
         }
         else
         {
@@ -348,9 +285,6 @@ public partial class NoteEditorView : UserControl
         _editor.Focus();
     }
 
-    /// <summary>
-    /// Prepends a prefix to the line the cursor is currently on.
-    /// </summary>
     private void PrependLine(string prefix)
     {
         if (_editor == null) return;
@@ -360,9 +294,6 @@ public partial class NoteEditorView : UserControl
         _editor.Focus();
     }
 
-    /// <summary>
-    /// Inserts text at the current cursor position.
-    /// </summary>
     private void InsertAtCursor(string text)
     {
         if (_editor == null) return;
@@ -375,18 +306,17 @@ public partial class NoteEditorView : UserControl
     private void UpdateLineNumbers()
     {
         if (_lineNumbers == null || _editor == null) return;
-        var count = _editor.Document.LineCount;
-        _lineNumbers.Text = string.Join(Environment.NewLine, Enumerable.Range(1, count));
+        _lineNumbers.Text = string.Join(
+            Environment.NewLine,
+            Enumerable.Range(1, _editor.Document.LineCount));
     }
 
-    // ── References panel click handler ──────────────────────
+    // ── References panel ────────────────────────────────────
 
     private void ReferencedNote_Tapped(object? sender, TappedEventArgs e)
     {
         if (sender is TextBlock tb && tb.DataContext is NoteCard card &&
             DataContext is NoteEditorViewModel vm)
-        {
             vm.OpenReferencedNoteCommand.Execute(card);
-        }
     }
 }

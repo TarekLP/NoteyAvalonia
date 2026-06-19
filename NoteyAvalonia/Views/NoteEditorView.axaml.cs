@@ -4,6 +4,7 @@ using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Data.Converters;
 using Avalonia.Input;
+using Avalonia.VisualTree;
 using Avalonia.Media;
 using AvaloniaEdit;
 using AvaloniaEdit.Document;

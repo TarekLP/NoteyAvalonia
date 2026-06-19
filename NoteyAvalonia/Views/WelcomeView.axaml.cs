@@ -7,33 +7,37 @@ namespace NoteToolAvalonia.Views;
 
 public partial class WelcomeView : UserControl
 {
-    public WelcomeView()
-    {
-        InitializeComponent();
-        AddHandler(KeyDownEvent, OnKeyDown, handledEventsToo: true);
-    }
+	public WelcomeView()
+	{
+		InitializeComponent();
+		AddHandler(KeyDownEvent, OnKeyDown, handledEventsToo: true);
+	}
+	private void OnKeyDown(object? sender, KeyEventArgs e)
+	{
+		if (e.Key != Key.Enter) return;
+		if (DataContext is not WelcomeViewModel vm) return;
+		if (!vm.IsCreatingNote) return;
 
-    // Press Enter to advance the creator wizard, or create on the last step
-    private void OnKeyDown(object? sender, KeyEventArgs e)
-    {
-        if (e.Key != Key.Enter) return;
-        if (DataContext is not WelcomeViewModel vm) return;
-        if (!vm.IsCreatingNote) return;
+		if (vm.CreatorStep < 4)
+			vm.CreatorNextCommand.Execute(null);
+		else
+			vm.CreateNoteCommand.Execute(null);
 
-        if (vm.CreatorStep < 4)
-            vm.CreatorNextCommand.Execute(null);
-        else
-            vm.CreateNoteCommand.Execute(null);
+		e.Handled = true;
 
-        e.Handled = true;
-    }
+		Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+		{
+			var box = this.FindControl<TextBox>($"WizardStep{vm.CreatorStep}Box");
+			box?.Focus();
+		}, Avalonia.Threading.DispatcherPriority.Input);
+	}
 
-    private void NoteCard_Tapped(object? sender, TappedEventArgs e)
-    {
-        if (sender is Border b && b.DataContext is NoteCard card &&
-            DataContext is WelcomeViewModel vm)
-        {
-            vm.OpenNoteCommand.Execute(card);
-        }
-    }
+	private void NoteCard_Tapped(object? sender, TappedEventArgs e)
+	{
+		if (sender is Border b && b.DataContext is NoteCard card &&
+			DataContext is WelcomeViewModel vm)
+		{
+			vm.OpenNoteCommand.Execute(card);
+		}
+	}
 }

@@ -134,51 +134,10 @@ public partial class NoteEditorView : UserControl
 
         if (_editor == null) return;
 
-        // Fresh document prevents the input-blocked state that occurs when
-        // AvaloniaEdit receives a null/shared document at construction time.
-        _editor.Document = new TextDocument();
-
         _editor.TextArea.TextView.LineTransformers.Clear();
         _editor.TextArea.TextView.LineTransformers.Add(new MarkdownColorizingTransformer());
 
-        AddHandler(KeyDownEvent, OnKeyDown, handledEventsToo: true);
-        FindToolbarButtons();
-        WireToolbarButtons();
-
-        // DataContext may already be set — load content now if so.
-        LoadContentFromVm();
-    }
-
-    private void OnDataContextChanged(object? sender, EventArgs e)
-    {
-        if (DataContext is not NoteEditorViewModel vm) return;
-
-        // Watch for undo/redo pushing new content in from the VM side
-        vm.PropertyChanged += (_, args) =>
-        {
-            if (args.PropertyName == nameof(NoteEditorViewModel.NoteContent) && !_updatingFromVm)
-                LoadContentFromVm();
-        };
-
-        // Load content — may be a no-op if visual tree isn't ready yet;
-        // OnAttachedToVisualTree will call it again when ready.
-        LoadContentFromVm();
-    }
-
-    /// <summary>
-    /// Pushes NoteContent from the ViewModel into the editor document.
-    /// Assigns a fresh TextDocument each time to guarantee input works.
-    /// Safe to call at any point — guards against null editor/DataContext.
-    /// </summary>
-    private void LoadContentFromVm()
-    {
-        if (_editor == null) return;
-        if (DataContext is not NoteEditorViewModel vm) return;
-
-        _updatingFromVm  = true;
-        _editor.Document = new TextDocument(vm.NoteContent ?? string.Empty);
-
-        // Re-attach TextChanged after replacing the document
+        // Wire TextChanged exactly once here — never again elsewhere
         _editor.TextArea.Document.TextChanged += (_, _) =>
         {
             if (_updatingFromVm) return;
@@ -187,10 +146,42 @@ public partial class NoteEditorView : UserControl
             UpdateLineNumbers();
         };
 
+        AddHandler(KeyDownEvent, OnKeyDown, handledEventsToo: true);
+        FindToolbarButtons();
+        WireToolbarButtons();
+
+        // Load initial content if DataContext already set
+        SyncContentToEditor();
+    }
+
+    private void OnDataContextChanged(object? sender, EventArgs e)
+    {
+        if (DataContext is not NoteEditorViewModel vm) return;
+
+        vm.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(NoteEditorViewModel.NoteContent) && !_updatingFromVm)
+                SyncContentToEditor();
+        };
+
+        SyncContentToEditor();
+    }
+
+    /// <summary>
+    /// Sets editor text directly on the existing document — never replaces
+    /// the document instance, which would break AvaloniaEdit's input wiring.
+    /// </summary>
+    private void SyncContentToEditor()
+    {
+        if (_editor == null) return;
+        if (DataContext is not NoteEditorViewModel vm) return;
+
+        _updatingFromVm = true;
+        _editor.Document.Text = vm.NoteContent ?? string.Empty;
         _updatingFromVm = false;
+
         UpdateLineNumbers();
 
-        // Focus the editor so the user can type immediately
         Avalonia.Threading.Dispatcher.UIThread.Post(
             () => _editor.Focus(),
             Avalonia.Threading.DispatcherPriority.Loaded);

@@ -278,7 +278,8 @@
             <TextBlock Text="What's your note about?"
                        FontSize="15" FontWeight="SemiBold"
                        Foreground="{StaticResource Brush.TextPrimary}"/>
-            <TextBox Text="{Binding NewNoteTitle, Mode=TwoWay}"
+            <TextBox Name="WizardStep1Box"
+                     Text="{Binding NewNoteTitle, Mode=TwoWay}"
                      Watermark="Note title..." FontSize="15"
                      Padding="14,12" CornerRadius="8"/>
           </StackPanel>
@@ -293,7 +294,8 @@
                        Foreground="{StaticResource Brush.TextPrimary}"/>
             <TextBlock Text="e.g. Work, Personal, Research..." FontSize="12"
                        Foreground="{StaticResource Brush.TextSecondary}"/>
-            <TextBox Text="{Binding NewNoteCategory, Mode=TwoWay}"
+            <TextBox Name="WizardStep2Box"
+                     Text="{Binding NewNoteCategory, Mode=TwoWay}"
                      Watermark="Category (optional)..."
                      Padding="14,12" CornerRadius="8"/>
           </StackPanel>
@@ -308,7 +310,8 @@
                        Foreground="{StaticResource Brush.TextPrimary}"/>
             <TextBlock Text="Comma-separated — e.g. design, ux, prototype" FontSize="12"
                        Foreground="{StaticResource Brush.TextSecondary}"/>
-            <TextBox Text="{Binding NewNoteTags, Mode=TwoWay}"
+            <TextBox Name="WizardStep3Box"
+                     Text="{Binding NewNoteTags, Mode=TwoWay}"
                      Watermark="Tags (optional)..."
                      Padding="14,12" CornerRadius="8"/>
           </StackPanel>
@@ -323,7 +326,8 @@
                        Foreground="{StaticResource Brush.TextPrimary}"/>
             <TextBlock Text="Enter a date like 2026-07-15, or leave blank to skip" FontSize="12"
                        Foreground="{StaticResource Brush.TextSecondary}"/>
-            <TextBox Text="{Binding NewNoteDeadline, Mode=TwoWay}"
+            <TextBox Name="WizardStep4Box"
+                     Text="{Binding NewNoteDeadline, Mode=TwoWay}"
                      Watermark="YYYY-MM-DD (optional)..."
                      Padding="14,12" CornerRadius="8"/>
           </StackPanel>

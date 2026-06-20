@@ -177,7 +177,12 @@ public partial class NoteEditorView : UserControl
         _updatingFromVm = false;
 
         UpdateLineNumbers();
-        _editor.Focus();
+
+        // AvaloniaEdit 0.10.12: TextEditor.Focus() does nothing because
+        // Focusable is false by design. Must focus the TextArea directly.
+        Avalonia.Threading.Dispatcher.UIThread.Post(
+            () => _editor.TextArea.Focus(),
+            Avalonia.Threading.DispatcherPriority.Input);
     }
 
     // ── Keyboard shortcuts ──────────────────────────────────
@@ -266,7 +271,7 @@ public partial class NoteEditorView : UserControl
             _editor.Document.Insert(pos, open + close);
             _editor.TextArea.Caret.Offset = pos + open.Length;
         }
-        _editor.Focus();
+        _editor.TextArea.Focus();
     }
 
     private void PrependLine(string prefix)
@@ -275,7 +280,7 @@ public partial class NoteEditorView : UserControl
         var line = _editor.Document.GetLineByOffset(_editor.TextArea.Caret.Offset);
         _editor.Document.Insert(line.Offset, prefix);
         _editor.TextArea.Caret.Offset = line.Offset + prefix.Length;
-        _editor.Focus();
+        _editor.TextArea.Focus();
     }
 
     private void InsertAtCursor(string text)
@@ -284,7 +289,7 @@ public partial class NoteEditorView : UserControl
         var pos = _editor.TextArea.Caret.Offset;
         _editor.Document.Insert(pos, text);
         _editor.TextArea.Caret.Offset = pos + text.Length;
-        _editor.Focus();
+        _editor.TextArea.Focus();
     }
 
     private void UpdateLineNumbers()

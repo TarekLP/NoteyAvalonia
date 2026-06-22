@@ -55,7 +55,8 @@ public class MarkdownColorizingTransformer : DocumentColorizingTransformer
         ChangeLinePart(line.Offset, line.EndOffset, el =>
         {
             el.TextRunProperties.SetForegroundBrush(new SolidColorBrush(color));
-            el.TextRunProperties.SetFontWeight(weight);
+            var tf = el.TextRunProperties.Typeface;
+            el.TextRunProperties.SetTypeface(new Typeface(tf.FontFamily, tf.Style, weight));
         });
 
     private void ApplyBold(DocumentLine line, string text)
@@ -65,8 +66,11 @@ public class MarkdownColorizingTransformer : DocumentColorizingTransformer
         {
             int o = text.IndexOf("**", s, StringComparison.Ordinal); if (o < 0) break;
             int c = text.IndexOf("**", o + 2, StringComparison.Ordinal); if (c < 0) break;
-            ChangeLinePart(line.Offset + o, line.Offset + c + 2,
-                el => el.TextRunProperties.SetFontWeight(FontWeight.Bold));
+            ChangeLinePart(line.Offset + o, line.Offset + c + 2, el =>
+            {
+                var tf = el.TextRunProperties.Typeface;
+                el.TextRunProperties.SetTypeface(new Typeface(tf.FontFamily, tf.Style, FontWeight.Bold));
+            });
             s = c + 2;
         }
     }

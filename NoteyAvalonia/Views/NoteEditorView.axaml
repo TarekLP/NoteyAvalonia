@@ -3,7 +3,7 @@
              xmlns:vm="using:NoteToolAvalonia.ViewModels"
              xmlns:local="using:NoteToolAvalonia.Views"
              xmlns:converters="using:NoteToolAvalonia.Converters"
-             xmlns:aedit="clr-namespace:AvaloniaEdit;assembly=Avalonia.AvaloniaEdit"
+             xmlns:aedit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
              x:Class="NoteToolAvalonia.Views.NoteEditorView"
              x:DataType="vm:NoteEditorViewModel">
 

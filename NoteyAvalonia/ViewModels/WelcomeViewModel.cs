@@ -79,11 +79,11 @@ public partial class WelcomeViewModel : ViewModelBase
     //  FILTERS
     // ══════════════════════════════════════════════════════
 
-    partial void OnSearchTextChanged(string _)             => ApplyFilters();
-    partial void OnSelectedCategoryChanged(string _)       => ApplyFilters();
-    partial void OnSelectedDeadlineFilterChanged(string _) => ApplyFilters();
-    partial void OnSelectedSortChanged(string _)           => ApplyFilters();
-    partial void OnShowCompletedChanged(bool _)            => ApplyFilters();
+    partial void OnSearchTextChanged(string value)             => ApplyFilters();
+    partial void OnSelectedCategoryChanged(string value)       => ApplyFilters();
+    partial void OnSelectedDeadlineFilterChanged(string value) => ApplyFilters();
+    partial void OnSelectedSortChanged(string value)           => ApplyFilters();
+    partial void OnShowCompletedChanged(bool value)            => ApplyFilters();
 
     private void ApplyFilters()
     {

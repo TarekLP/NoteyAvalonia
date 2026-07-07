@@ -69,6 +69,7 @@ public partial class NoteEditorViewModel : ViewModelBase
         _category    = card.Category;
         _tagsDisplay = string.Join(", ", card.Tags);
         _selectedPriority = card.Priority;
+        _deadlineText = string.Empty;
 
         if (card.Deadline.HasValue)
         {
@@ -127,7 +128,7 @@ public partial class NoteEditorViewModel : ViewModelBase
         ScheduleAutoSave();
     }
 
-    partial void OnFindTextChanged(string _) => UpdateFindMatches();
+    partial void OnFindTextChanged(string value) => UpdateFindMatches();
 
     partial void OnReferenceSearchChanged(string value) => FilterReferenceSearch(value);
 

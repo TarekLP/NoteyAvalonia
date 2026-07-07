@@ -362,3 +362,9 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /NoteyAvalonia/ProjectOverview.txt
+/NoteyAvalonia/_agent_explore.md
+/NoteyAvalonia/NoteEditor_WYSIWYG_notes.md
+/NoteEditor_WYSIWYG_notes.md
+/_agent_explore.md
+/create_project.ps1
+/.vscode

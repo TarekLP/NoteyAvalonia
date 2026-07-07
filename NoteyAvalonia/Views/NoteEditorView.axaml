@@ -3,13 +3,8 @@
              xmlns:vm="using:NoteToolAvalonia.ViewModels"
              xmlns:local="using:NoteToolAvalonia.Views"
              xmlns:converters="using:NoteToolAvalonia.Converters"
-             xmlns:aedit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
              x:Class="NoteToolAvalonia.Views.NoteEditorView"
              x:DataType="vm:NoteEditorViewModel">
-
-  <UserControl.Resources>
-    <local:BoolToTextWrappingConverter x:Key="BoolToWrap"/>
-  </UserControl.Resources>
 
   <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
 
@@ -285,7 +280,7 @@
           </Grid>
         </Border>
 
-        <!-- AvaloniaEdit live markdown editor -->
+        <!-- Single-pane markdown editor (left half of CustomMarkdownEditor, preview hidden) -->
         <Grid Grid.Row="1" ColumnDefinitions="Auto,*">
           <!-- Line numbers sidebar -->
           <Border Grid.Column="0"
@@ -300,18 +295,7 @@
                        FontSize="13" TextAlignment="Right"/>
           </Border>
 
-          <!-- The editor itself — wired up in code-behind -->
-          <aedit:TextEditor Grid.Column="1"
-                            Name="MarkdownEditor"
-                            FontFamily="Cascadia Code, Consolas, monospace"
-                            FontSize="15"
-                            Background="{StaticResource Brush.Background}"
-                            Foreground="{StaticResource Brush.TextPrimary}"
-                            Padding="30,20,30,20"
-                            ShowLineNumbers="False"
-                            WordWrap="True"
-                            HorizontalScrollBarVisibility="Disabled"
-                            VerticalScrollBarVisibility="Auto"/>
+          <local:MarkdownEditorOnly Grid.Column="1" Name="MarkdownEditorHost" />
         </Grid>
       </Grid>
 

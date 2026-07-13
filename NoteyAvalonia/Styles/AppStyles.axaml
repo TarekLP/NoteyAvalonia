@@ -1,5 +1,6 @@
 ﻿<Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:NoteToolAvalonia.Controls">
 
   <Styles.Resources>
 
@@ -200,6 +201,25 @@
     <Setter Property="CornerRadius" Value="6"/>
     <Setter Property="Padding" Value="12"/>
     <Setter Property="FontFamily" Value="Cascadia Code, Consolas, monospace"/>
+  </Style>
+
+  <!-- =========================
+       MARKDOWN EDITOR TEMPLATE
+       ========================= -->
+  <Style Selector="controls|MarkdownEditor">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <TextBox Name="PART_EditorInput"
+                 Text="{Binding $parent[controls:MarkdownEditor].Markdown, Mode=TwoWay}"
+                 AcceptsReturn="True"
+                 AcceptsTab="True"
+                 TextWrapping="Wrap"
+                 Background="Transparent"
+                 Foreground="{StaticResource Brush.TextPrimary}"
+                 BorderThickness="0"
+                 Padding="12"/>
+      </ControlTemplate>
+    </Setter>
   </Style>
 
 </Styles>

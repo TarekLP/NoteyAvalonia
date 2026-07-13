@@ -27,7 +27,8 @@ public partial class NoteEditorViewModel : ViewModelBase
     [ObservableProperty] private string  _tagsDisplay;        // comma-separated for editing
     [ObservableProperty] private string  _deadlineText;       // human-readable
     [ObservableProperty] private bool    _hasDeadline;
-    [ObservableProperty] private bool    _isOverdue;
+	[ObservableProperty] private DateTime? _deadline;
+	[ObservableProperty] private bool    _isOverdue;
 
     // ── References panel ───────────────────────────────────
     [ObservableProperty] private bool _isReferencesPanelOpen;
@@ -46,6 +47,7 @@ public partial class NoteEditorViewModel : ViewModelBase
     [ObservableProperty] private int    _wordCount;
     [ObservableProperty] private int    _characterCount;
     [ObservableProperty] private int    _lineCount;
+    [ObservableProperty] private string _lineNumbersText = string.Empty;
     [ObservableProperty] private string _statusMessage    = string.Empty;
     [ObservableProperty] private int    _undoCount;
     [ObservableProperty] private int    _redoCount;
@@ -367,6 +369,7 @@ public partial class NoteEditorViewModel : ViewModelBase
                              StringSplitOptions.RemoveEmptyEntries).Length;
         CharacterCount = NoteContent.Length;
         LineCount      = NoteContent.Split('\n').Length;
+        LineNumbersText = string.Join("\n", Enumerable.Range(1, LineCount));
     }
 
     private void ShowStatus(string msg)

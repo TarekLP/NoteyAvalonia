@@ -1,1 +1,4153 @@
-﻿PROJECT OVERVIEW - 02/26/2026 07:02:12
+﻿PROJECT OVERVIEW - 07/07/2026 16:15:21
+
+========================================
+FOLDER: Models
+========================================
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Models\AppSettings.cs ---
+----------------------------------------
+namespace NoteToolAvalonia.Models;
+
+public class AppSettings
+{
+	public string Theme { get; set; } = "Dark";
+	public string FontFamily { get; set; } = "Inter";
+	public int FontSize { get; set; } = 14;
+	public bool AutoSave { get; set; } = true;
+	public int AutoSaveInterval { get; set; } = 2;
+	public bool ConfirmBeforeDelete { get; set; } = true;
+	public bool ShowCompletedNotes { get; set; } = true;
+}
+
+
+
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Models\NoteCard.cs ---
+----------------------------------------
+using System;
+using System.Collections.Generic;
+
+namespace NoteToolAvalonia.Models;
+
+public enum NotePriority
+{
+    None,
+    Low,
+    Medium,
+    High,
+    Critical
+}
+
+/// <summary>
+/// Represents a single note document.
+/// All metadata is stored as YAML frontmatter in the .md file itself,
+/// so notes are portable and can be opened in Obsidian, VS Code, etc.
+/// </summary>
+public class NoteCard
+{
+    public string Id           { get; set; } = Guid.NewGuid().ToString();
+    public string Title        { get; set; } = "New Note";
+    public string Category     { get; set; } = string.Empty;
+    public List<string> Tags   { get; set; } = new();
+
+    /// <summary>
+    /// GUIDs of other notes this note links to (for the references panel).
+    /// </summary>
+    public List<string> References { get; set; } = new();
+
+    public NotePriority Priority  { get; set; } = NotePriority.None;
+    public DateTime?    Deadline  { get; set; }
+    public DateTime     CreatedAt    { get; set; } = DateTime.Now;
+    public DateTime     LastModified { get; set; } = DateTime.Now;
+    public bool         IsCompleted  { get; set; }
+    public bool         IsPinned     { get; set; }
+}
+
+
+
+
+========================================
+FOLDER: Services
+========================================
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Services\NoteyService.cs ---
+----------------------------------------
+using NoteToolAvalonia.Models;
+using NoteToolAvalonia.ViewModels;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
+using System.Threading;
+
+namespace NoteToolAvalonia.Services;
+
+// ============================================================
+//  NAVIGATION
+//  Decouples views from each other â€” no view holds a reference
+//  to another. MainWindowViewModel registers itself on startup,
+//  then anyone with a NoteyService can navigate anywhere.
+// ============================================================
+
+public interface INoteyNavigator
+{
+    void NavigateToWelcome();
+    void NavigateToNoteEditor(NoteCard card);
+    void NavigateToSettings();
+    void NavigateToCredits();
+}
+
+// ============================================================
+//  NOTEY SERVICE
+//  Single entry point for all app-level operations:
+//    - Navigation  (INoteyNavigator)
+//    - Note files  (markdown + frontmatter on disk)
+//    - App data    (settings + note index as JSON)
+//    - Edit history (undo / redo / revision snapshots)
+// ============================================================
+
+public class NoteyService : INoteyNavigator
+{
+    // â”€â”€ Paths â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    private readonly string _dataFolder;
+    private readonly string _notesFolder;
+    private readonly string _notesIndexFile;
+    private readonly string _settingsFile;
+
+    // â”€â”€ Infrastructure â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    private readonly JsonSerializerOptions _jsonOptions;
+    private readonly object _fileLock = new();
+    private const int MaxRetries = 3;
+    private const int RetryDelayMs = 100;
+
+    // â”€â”€ Navigation target â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    private MainWindowViewModel? _mainVm;
+
+    // â”€â”€ Edit history (one instance per open note session) â”€â”€
+
+    private readonly EditHistory _editHistory = new();
+
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    //  CONSTRUCTOR
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+    public NoteyService()
+    {
+        _dataFolder = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "NoteToolAvalonia");
+
+        _notesFolder = Path.Combine(_dataFolder, "notes");
+        _notesIndexFile = Path.Combine(_dataFolder, "notes-index.json");
+        _settingsFile = Path.Combine(_dataFolder, "settings.json");
+
+        Directory.CreateDirectory(_dataFolder);
+        Directory.CreateDirectory(_notesFolder);
+
+        _jsonOptions = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNameCaseInsensitive = true,
+            DefaultIgnoreCondition =
+                System.Text.Json.Serialization.JsonIgnoreCondition.Never
+        };
+    }
+
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    //  REGION: NAVIGATION
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+    /// <summary>
+    /// Call this once from App startup so the service knows
+    /// which window to drive navigation on.
+    /// </summary>
+    public void SetMainViewModel(MainWindowViewModel vm) => _mainVm = vm;
+
+    public void NavigateToWelcome()     => _mainVm?.NavigateToWelcome();
+    public void NavigateToSettings()    => _mainVm?.NavigateToSettings();
+    public void NavigateToCredits()     => _mainVm?.NavigateToCredits();
+    public void NavigateToNoteEditor(NoteCard card) =>
+        _mainVm?.NavigateToNoteEditor(card);
+
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    //  REGION: NOTE FILE I/O  (markdown + YAML frontmatter)
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+    /// <summary>
+    /// Loads the raw markdown body of a note (everything after
+    /// the frontmatter block). Returns empty string if not found.
+    /// </summary>
+    public string LoadNoteContent(string noteId)
+    {
+        var path = GetNotePath(noteId);
+        lock (_fileLock)
+        {
+            if (!File.Exists(path)) return string.Empty;
+            try
+            {
+                var raw = File.ReadAllText(path);
+                return StripFrontmatter(raw);
+            }
+            catch { return string.Empty; }
+        }
+    }
+
+    /// <summary>
+    /// Saves markdown body + serialised metadata as YAML frontmatter.
+    /// The resulting file is valid, portable markdown you can open
+    /// in Obsidian, VS Code, or any other editor.
+    /// </summary>
+    public void SaveNote(NoteCard card, string markdownBody)
+    {
+        card.LastModified = DateTime.Now;
+        var fullFile = BuildFileWithFrontmatter(card, markdownBody);
+        lock (_fileLock)
+        {
+            WriteWithRetry(GetNotePath(card.Id), fullFile);
+        }
+        // Keep the index in sync
+        UpsertNoteInIndex(card);
+    }
+
+    /// <summary>
+    /// Reads a note's metadata back from its frontmatter without
+    /// loading the full body. Useful for building the library list.
+    /// </summary>
+    public NoteCard? LoadNoteMetadata(string noteId)
+    {
+        var path = GetNotePath(noteId);
+        lock (_fileLock)
+        {
+            if (!File.Exists(path)) return null;
+            try
+            {
+                var raw = File.ReadAllText(path);
+                return ParseFrontmatter(noteId, raw);
+            }
+            catch { return null; }
+        }
+    }
+
+    /// <summary>
+    /// Deletes the .md file for a note and removes it from the index.
+    /// </summary>
+    public void DeleteNote(string noteId)
+    {
+        var path = GetNotePath(noteId);
+        lock (_fileLock)
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+        RemoveNoteFromIndex(noteId);
+    }
+
+    /// <summary>
+    /// Exports a note's full content (frontmatter + body) to an
+    /// arbitrary file path chosen by the user.
+    /// </summary>
+    public void ExportNote(string noteId, string targetPath)
+    {
+        var path = GetNotePath(noteId);
+        lock (_fileLock)
+        {
+            if (!File.Exists(path)) return;
+            var content = File.ReadAllText(path);
+            WriteWithRetry(targetPath, content);
+        }
+    }
+
+    // â”€â”€ Frontmatter helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    /// <summary>
+    /// Builds the full file text: a YAML frontmatter block
+    /// followed by the markdown body.
+    ///
+    /// Example output:
+    ///   ---
+    ///   title: My Note
+    ///   category: Work
+    ///   tags: [design, ux]
+    ///   deadline: 2026-07-01
+    ///   references: [abc-123]
+    ///   priority: High
+    ///   created: 2026-06-01T10:00:00
+    ///   modified: 2026-06-15T14:30:00
+    ///   completed: false
+    ///   ---
+    ///
+    ///   Your markdown here...
+    /// </summary>
+    private static string BuildFileWithFrontmatter(NoteCard card, string body)
+    {
+        var tags = card.Tags != null && card.Tags.Count > 0
+            ? $"[{string.Join(", ", card.Tags)}]"
+            : "[]";
+
+        var refs = card.References != null && card.References.Count > 0
+            ? $"[{string.Join(", ", card.References)}]"
+            : "[]";
+
+        var deadline = card.Deadline.HasValue
+            ? card.Deadline.Value.ToString("yyyy-MM-dd")
+            : "";
+
+        var fm = $"""
+            ---
+            title: {card.Title}
+            category: {card.Category}
+            tags: {tags}
+            deadline: {deadline}
+            references: {refs}
+            priority: {card.Priority}
+            created: {card.CreatedAt:O}
+            modified: {card.LastModified:O}
+            completed: {card.IsCompleted.ToString().ToLower()}
+            ---
+
+            """;
+
+        return fm + body;
+    }
+
+    /// <summary>
+    /// Parses a YAML frontmatter block at the top of a file back
+    /// into a NoteCard. Handles missing or malformed fields gracefully.
+    /// </summary>
+    private static NoteCard ParseFrontmatter(string noteId, string raw)
+    {
+        var card = new NoteCard { Id = noteId };
+
+        if (!raw.StartsWith("---")) return card;
+
+        var end = raw.IndexOf("---", 3);
+        if (end < 0) return card;
+
+        var block = raw[3..end];
+
+        foreach (var line in block.Split('\n'))
+        {
+            var colon = line.IndexOf(':');
+            if (colon < 0) continue;
+
+            var key   = line[..colon].Trim();
+            var value = line[(colon + 1)..].Trim();
+
+            switch (key)
+            {
+                case "title":      card.Title    = value; break;
+                case "category":   card.Category = value; break;
+                case "completed":  card.IsCompleted = value == "true"; break;
+                case "priority":
+                    if (Enum.TryParse<NotePriority>(value, out var p))
+                        card.Priority = p;
+                    break;
+                case "deadline":
+                    if (DateTime.TryParse(value, out var d))
+                        card.Deadline = d;
+                    break;
+                case "created":
+                    if (DateTime.TryParse(value, out var c))
+                        card.CreatedAt = c;
+                    break;
+                case "modified":
+                    if (DateTime.TryParse(value, out var m))
+                        card.LastModified = m;
+                    break;
+                case "tags":
+                    card.Tags = ParseYamlList(value);
+                    break;
+                case "references":
+                    card.References = ParseYamlList(value);
+                    break;
+            }
+        }
+
+        return card;
+    }
+
+    /// <summary>
+    /// Returns everything after the closing --- of a frontmatter block.
+    /// If there's no frontmatter, returns the whole string unchanged.
+    /// </summary>
+    private static string StripFrontmatter(string raw)
+    {
+        if (!raw.StartsWith("---")) return raw;
+        var end = raw.IndexOf("---", 3);
+        if (end < 0) return raw;
+        var bodyStart = raw.IndexOf('\n', end);
+        return bodyStart >= 0 ? raw[(bodyStart + 1)..].TrimStart('\n') : string.Empty;
+    }
+
+    /// <summary>
+    /// Parses a simple YAML inline list: [item1, item2] â†’ List of strings.
+    /// </summary>
+    private static List<string> ParseYamlList(string value)
+    {
+        value = value.Trim('[', ']');
+        if (string.IsNullOrWhiteSpace(value)) return new();
+        return value.Split(',')
+                    .Select(s => s.Trim())
+                    .Where(s => s.Length > 0)
+                    .ToList();
+    }
+
+    private string GetNotePath(string noteId) =>
+        Path.Combine(_notesFolder, $"{noteId}.md");
+
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    //  REGION: NOTES INDEX  (fast library listing)
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+    /// <summary>
+    /// Loads all note metadata from the index file.
+    /// The index stores only lightweight info (id, title, category,
+    /// tags, deadline) so the library can load without reading every
+    /// individual .md file.
+    /// </summary>
+    public List<NoteCard> LoadNotesIndex()
+    {
+        lock (_fileLock)
+        {
+            if (!File.Exists(_notesIndexFile)) return new();
+            try
+            {
+                var json = File.ReadAllText(_notesIndexFile);
+                return JsonSerializer.Deserialize<List<NoteCard>>(json, _jsonOptions)
+                       ?? new();
+            }
+            catch { return new(); }
+        }
+    }
+
+    private void UpsertNoteInIndex(NoteCard card)
+    {
+        var index = LoadNotesIndex();
+        var i = index.FindIndex(n => n.Id == card.Id);
+        if (i >= 0) index[i] = card;
+        else        index.Add(card);
+        SaveNotesIndex(index);
+    }
+
+    private void RemoveNoteFromIndex(string noteId)
+    {
+        var index = LoadNotesIndex();
+        index.RemoveAll(n => n.Id == noteId);
+        SaveNotesIndex(index);
+    }
+
+    private void SaveNotesIndex(List<NoteCard> index)
+    {
+        lock (_fileLock)
+        {
+            var json = JsonSerializer.Serialize(index, _jsonOptions);
+            WriteWithRetry(_notesIndexFile, json);
+        }
+    }
+
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    //  REGION: SETTINGS
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+    public AppSettings LoadSettings()
+    {
+        lock (_fileLock)
+        {
+            if (!File.Exists(_settingsFile)) return new AppSettings();
+            try
+            {
+                var json = File.ReadAllText(_settingsFile);
+                return JsonSerializer.Deserialize<AppSettings>(json, _jsonOptions)
+                       ?? new AppSettings();
+            }
+            catch { return new AppSettings(); }
+        }
+    }
+
+    public void SaveSettings(AppSettings settings)
+    {
+        lock (_fileLock)
+        {
+            var json = JsonSerializer.Serialize(settings, _jsonOptions);
+            WriteWithRetry(_settingsFile, json);
+        }
+    }
+
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    //  REGION: EDIT HISTORY  (undo / redo / revisions)
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+    /// <summary>
+    /// Direct access to the edit history for the note currently
+    /// open in the editor. The editor ViewModel uses this to push
+    /// states and request undo/redo.
+    /// </summary>
+    public EditHistory History => _editHistory;
+
+    /// <summary>The root folder where all Notey data lives.</summary>
+    public string DataFolder => _dataFolder;
+
+    /// <summary>Folder containing individual .md note files.</summary>
+    public string NotesFolder => _notesFolder;
+
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    //  REGION: FILE I/O HELPERS
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+    private void WriteWithRetry(string path, string content)
+    {
+        for (int attempt = 0; attempt < MaxRetries; attempt++)
+        {
+            try
+            {
+                File.WriteAllText(path, content);
+                return;
+            }
+            catch (IOException) when (attempt < MaxRetries - 1)
+            {
+                Thread.Sleep(RetryDelayMs);
+            }
+        }
+        throw new IOException(
+            $"Could not write to {path} after {MaxRetries} attempts.");
+    }
+}
+
+// ============================================================
+//  EDIT HISTORY
+//  Standalone class â€” easy to lift out into another project.
+//  Manages undo/redo stacks and periodic revision snapshots.
+// ============================================================
+
+public class EditHistory
+{
+    private record HistoryState(string Content, int CursorPosition, DateTime Timestamp);
+
+    private readonly List<HistoryState> _undo      = new();
+    private readonly List<HistoryState> _redo      = new();
+    private readonly List<HistoryState> _revisions = new();
+
+    private DateTime _lastRevisionTime = DateTime.Now;
+
+    private readonly int      _maxUndo;
+    private readonly int      _maxRevisions;
+    private readonly TimeSpan _revisionInterval;
+
+    public int UndoCount     => _undo.Count;
+    public int RedoCount     => _redo.Count;
+    public int RevisionCount => _revisions.Count;
+
+    public EditHistory(
+        int maxUndo = 50,
+        int maxRevisions = 100,
+        int revisionIntervalMinutes = 5)
+    {
+        _maxUndo           = maxUndo;
+        _maxRevisions      = maxRevisions;
+        _revisionInterval  = TimeSpan.FromMinutes(revisionIntervalMinutes);
+    }
+
+    /// <summary>
+    /// Call this every time the user makes an edit.
+    /// Clears the redo stack (a new edit invalidates redo history).
+    /// Auto-snapshots a revision every few minutes.
+    /// </summary>
+    public void Push(string content, int cursorPosition = 0)
+    {
+        _undo.Add(new(content, cursorPosition, DateTime.Now));
+        _redo.Clear();
+
+        if (_undo.Count > _maxUndo)
+            _undo.RemoveAt(0);
+
+        if (DateTime.Now - _lastRevisionTime >= _revisionInterval)
+        {
+            Snapshot(content);
+            _lastRevisionTime = DateTime.Now;
+        }
+    }
+
+    /// <summary>
+    /// Restores the previous state. Returns (content, cursor) or null
+    /// if there's nothing left to undo.
+    /// </summary>
+    public (string Content, int CursorPosition)? Undo()
+    {
+        if (_undo.Count == 0) return null;
+
+        var current = _undo[^1];
+        _undo.RemoveAt(_undo.Count - 1);
+        _redo.Add(current);
+
+        if (_undo.Count == 0) return null;
+
+        var prev = _undo[^1];
+        return (prev.Content, prev.CursorPosition);
+    }
+
+    /// <summary>
+    /// Re-applies the last undone state. Returns (content, cursor) or null.
+    /// </summary>
+    public (string Content, int CursorPosition)? Redo()
+    {
+        if (_redo.Count == 0) return null;
+
+        var state = _redo[^1];
+        _redo.RemoveAt(_redo.Count - 1);
+        _undo.Add(state);
+
+        return (state.Content, state.CursorPosition);
+    }
+
+    /// <summary>
+    /// Manually saves a named snapshot (e.g. on open, on explicit save).
+    /// </summary>
+    public void Snapshot(string content) =>
+        AddRevision(new(content, 0, DateTime.Now));
+
+    public List<(DateTime Timestamp, string Content)> GetRevisions() =>
+        _revisions.Select(r => (r.Timestamp, r.Content)).ToList();
+
+    public string? GetRevision(int index) =>
+        index >= 0 && index < _revisions.Count
+            ? _revisions[index].Content
+            : null;
+
+    public void Clear()
+    {
+        _undo.Clear();
+        _redo.Clear();
+        _revisions.Clear();
+        _lastRevisionTime = DateTime.Now;
+    }
+
+    private void AddRevision(HistoryState state)
+    {
+        _revisions.Add(state);
+        if (_revisions.Count > _maxRevisions)
+            _revisions.RemoveAt(0);
+    }
+}
+
+
+
+
+========================================
+FOLDER: Styles
+========================================
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Styles\AppStyles.axaml ---
+----------------------------------------
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <Styles.Resources>
+
+    <!-- Surfaces -->
+    <Color x:Key="Color.Background">#1e1e1e</Color>
+    <Color x:Key="Color.Surface">#252526</Color>
+    <Color x:Key="Color.SurfaceAlt">#2d2d30</Color>
+
+    <!-- Borders -->
+    <Color x:Key="Color.Border">#3e3e42</Color>
+
+    <!-- Text -->
+    <Color x:Key="Color.TextPrimary">#ffffff</Color>
+    <Color x:Key="Color.TextSecondary">#888888</Color>
+
+    <!-- Accent -->
+    <Color x:Key="Color.Accent">#6a1b9a</Color>
+    <Color x:Key="Color.AccentHover">#7b1fa2</Color>
+
+    <!-- Semantic Brushes -->
+    <SolidColorBrush x:Key="Brush.Background" Color="{StaticResource Color.Background}"/>
+    <SolidColorBrush x:Key="Brush.Surface" Color="{StaticResource Color.Surface}"/>
+    <SolidColorBrush x:Key="Brush.SurfaceAlt" Color="{StaticResource Color.SurfaceAlt}"/>
+    <SolidColorBrush x:Key="Brush.Border" Color="{StaticResource Color.Border}"/>
+    <SolidColorBrush x:Key="Brush.TextPrimary" Color="{StaticResource Color.TextPrimary}"/>
+    <SolidColorBrush x:Key="Brush.TextSecondary" Color="{StaticResource Color.TextSecondary}"/>
+    <SolidColorBrush x:Key="Brush.Accent" Color="{StaticResource Color.Accent}"/>
+    <SolidColorBrush x:Key="Brush.AccentHover" Color="{StaticResource Color.AccentHover}"/>
+
+  </Styles.Resources>
+
+  <!-- =========================
+       BASE TYPOGRAPHY
+       ========================= -->
+  <Style Selector="TemplatedControl">
+    <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
+    <Setter Property="FontSize" Value="{DynamicResource AppFontSize}"/>
+  </Style>
+
+  <!-- =========================
+       LAYOUT / SURFACES
+       ========================= -->
+  <Style Selector="Border.card">
+    <Setter Property="Background" Value="{StaticResource Brush.Surface}"/>
+    <Setter Property="CornerRadius" Value="8"/>
+    <Setter Property="Padding" Value="16"/>
+    <Setter Property="Margin" Value="4"/>
+    <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+  </Style>
+
+  <Style Selector="Border.card:pointerover">
+    <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
+  </Style>
+
+  <Style Selector="Border.kanban-column">
+    <Setter Property="Background" Value="{StaticResource Brush.Background}"/>
+    <Setter Property="CornerRadius" Value="10"/>
+    <Setter Property="Padding" Value="12"/>
+    <Setter Property="Margin" Value="6"/>
+    <Setter Property="MinWidth" Value="280"/>
+    <Setter Property="MaxWidth" Value="340"/>
+  </Style>
+
+  <Style Selector="Border.note-card">
+    <Setter Property="Background" Value="{StaticResource Brush.SurfaceAlt}"/>
+    <Setter Property="CornerRadius" Value="6"/>
+    <Setter Property="Padding" Value="12"/>
+    <Setter Property="Margin" Value="0,4"/>
+    <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+  </Style>
+
+  <Style Selector="Border.note-card:pointerover">
+    <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
+    <Setter Property="Background" Value="{StaticResource Brush.Surface}"/>
+  </Style>
+
+  <Style Selector="Border.sidebar">
+    <Setter Property="Background" Value="{StaticResource Brush.Background}"/>
+  </Style>
+
+  <!-- =========================
+       BUTTONS
+       ========================= -->
+
+  <!-- Sidebar Button -->
+  <Style Selector="Button.sidebar-btn">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}"/>
+    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    <Setter Property="HorizontalContentAlignment" Value="Left"/>
+    <Setter Property="Padding" Value="12,10"/>
+    <Setter Property="Margin" Value="0,2"/>
+    <Setter Property="CornerRadius" Value="6"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Cursor" Value="Hand"/>
+  </Style>
+
+  <Style Selector="Button.sidebar-btn:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource Brush.SurfaceAlt}"/>
+  </Style>
+
+  <Style Selector="Button.sidebar-btn:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource Brush.Surface}"/>
+  </Style>
+
+    <!-- Accent Button -->
+    <Style Selector="Button.accent">
+      <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Padding" Value="20,12"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="MinHeight" Value="40"/>
+    </Style>
+
+    <Style Selector="Button.accent:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Brush.AccentHover}"/>
+    </Style>
+
+    <!-- Danger Button -->
+    <Style Selector="Button.danger">
+      <Setter Property="Background" Value="#c0392b"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Padding" Value="20,12"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="MinHeight" Value="40"/>
+    </Style>
+
+    <Style Selector="Button.danger:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#e74c3c"/>
+    </Style>
+
+  <!-- Ghost Button -->
+  <Style Selector="Button.ghost">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Foreground" Value="{StaticResource Brush.TextSecondary}"/>
+    <Setter Property="CornerRadius" Value="8"/>
+    <Setter Property="Padding" Value="20,12"/>
+    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="MinHeight" Value="40"/>
+  </Style>
+
+  <Style Selector="Button.ghost:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource Brush.SurfaceAlt}"/>
+  </Style>
+
+  <!-- =========================
+       CHECKBOX (purple accent)
+       ========================= -->
+  <Style Selector="CheckBox">
+    <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}"/>
+  </Style>
+
+  <Style Selector="CheckBox:checked /template/ Path">
+    <Setter Property="Fill" Value="{StaticResource Brush.Accent}"/>
+  </Style>
+
+  <Style Selector="CheckBox:indeterminate /template/ Path">
+    <Setter Property="Fill" Value="{StaticResource Brush.Accent}"/>
+  </Style>
+
+
+  <!-- =========================
+       TEXT
+       ========================= -->
+  <Style Selector="TextBlock.section-title">
+    <Setter Property="FontSize" Value="22"/>
+    <Setter Property="FontWeight" Value="Bold"/>
+    <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}"/>
+    <Setter Property="Margin" Value="0,0,0,12"/>
+  </Style>
+
+  <Style Selector="TextBlock.subtitle">
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="Foreground" Value="{StaticResource Brush.TextSecondary}"/>
+  </Style>
+
+  <!-- =========================
+       TAGS / EDITOR
+       ========================= -->
+  <Style Selector="Border.priority-tag">
+    <Setter Property="CornerRadius" Value="4"/>
+    <Setter Property="Padding" Value="8,3"/>
+    <Setter Property="Margin" Value="0,4,4,0"/>
+    <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
+  </Style>
+
+  <Style Selector="TextBox.editor">
+    <Setter Property="Background" Value="{StaticResource Brush.Background}"/>
+    <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}"/>
+    <Setter Property="CornerRadius" Value="6"/>
+    <Setter Property="Padding" Value="12"/>
+    <Setter Property="FontFamily" Value="Cascadia Code, Consolas, monospace"/>
+  </Style>
+
+</Styles>
+
+
+
+========================================
+FOLDER: ViewModels
+========================================
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\ViewModels\CreditsViewModel.cs ---
+----------------------------------------
+using CommunityToolkit.Mvvm.ComponentModel;
+using System.Collections.ObjectModel;
+
+namespace NoteToolAvalonia.ViewModels;
+
+public class CreditItem : ObservableObject
+{
+    private string _name = string.Empty;
+    private string _iconPath = string.Empty;
+    private string _url = string.Empty;
+    private string _role = string.Empty;
+
+    public string Name
+    {
+        get => _name;
+        set => SetProperty(ref _name, value);
+    }
+
+    public string IconPath
+    {
+        get => _iconPath;
+        set => SetProperty(ref _iconPath, value);
+    }
+
+    public string Url
+    {
+        get => _url;
+        set => SetProperty(ref _url, value);
+    }
+
+    public string Role
+    {
+        get => _role;
+        set => SetProperty(ref _role, value);
+    }
+
+    public CreditItem() { }
+
+    public CreditItem(string name, string role, string iconPath, string url)
+    {
+        Name = name;
+        Role = role;
+        IconPath = iconPath;
+        Url = url;
+    }
+}
+
+public partial class CreditsViewModel : ViewModelBase
+{
+    [ObservableProperty]
+    private ObservableCollection<CreditItem> _credits = new();
+
+    public CreditsViewModel()
+    {
+        LoadCredits();
+    }
+
+    private void LoadCredits()
+    {
+        Credits.Add(new CreditItem(
+            "Avalonia UI",
+            "UI Framework",
+            "https://avatars.githubusercontent.com/u/14075148?s=200&v=4",
+            "https://avaloniaui.net"
+        ));
+
+        Credits.Add(new CreditItem(
+            "NadzW",
+            "Criticser - Motivator",
+            "https://static-cdn.jtvnw.net/jtv_user_pictures/f4fccec4-57c2-429e-a273-1785a59577cf-profile_image-70x70.png",
+            "https://nadeemwali.com/"
+        ));
+
+        Credits.Add(new CreditItem(
+            "Prtapay",
+            "Tester - Motivator",
+            "https://cdn.bsky.app/img/avatar/plain/did:plc:m4fbbqqqhp3onbp46yus47eo/bafkreid6j66splpzkwfad22ehi2gs23fn453zrlksurto6nivnlyb7qe3y",
+            "https://bsky.app/profile/prtapay.bsky.social"
+        ));
+        Credits.Add(new CreditItem(
+            "ZeroZM0",
+            "Tester - Criticser",
+            "https://storage.modworkshop.net/users/images/9z0rIQ7ju939cqk8L7wFmJYvJtUIOLuMcApNXemE.webp",
+            "https://zerozm0.carrd.co/"
+        ));
+    }
+}
+
+
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\ViewModels\MainWindowViewModel.cs ---
+----------------------------------------
+using Avalonia;
+using Avalonia.Styling;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using NoteToolAvalonia.Models;
+using NoteToolAvalonia.Services;
+
+namespace NoteToolAvalonia.ViewModels;
+
+public partial class MainWindowViewModel : ViewModelBase
+{
+    private readonly NoteyService _service;
+
+    [ObservableProperty] private ViewModelBase? _currentView;
+    [ObservableProperty] private string _title = "Notey";
+    [ObservableProperty] private bool _isSidebarVisible = true;
+    [ObservableProperty] private string _currentFontFamily = "Inter";
+    [ObservableProperty] private int _currentFontSize = 15;
+
+    public MainWindowViewModel(NoteyService service)
+    {
+        _service = service;
+        ApplyAppSettings();
+    }
+
+    public void ApplyAppSettings()
+    {
+        var settings = _service.LoadSettings();
+        CurrentFontFamily = settings.FontFamily;
+        CurrentFontSize = settings.FontSize;
+
+        if (Application.Current != null)
+        {
+            Application.Current.RequestedThemeVariant = settings.Theme switch
+            {
+                "Light"  => ThemeVariant.Light,
+                "Dark"   => ThemeVariant.Dark,
+                _        => ThemeVariant.Default
+            };
+        }
+    }
+
+    public void NavigateToWelcome()
+    {
+        CurrentView = new WelcomeViewModel(_service);
+        Title = "Notey";
+    }
+
+    public void NavigateToNoteEditor(NoteCard card)
+    {
+        CurrentView = new NoteEditorViewModel(card, _service);
+        Title = $"Notey â€” {card.Title}";
+    }
+
+    public void NavigateToSettings()
+    {
+        CurrentView = new SettingsViewModel(_service);
+        Title = "Notey â€” Settings";
+    }
+
+    public void NavigateToCredits()
+    {
+        CurrentView = new CreditsViewModel();
+        Title = "Notey â€” Credits";
+    }
+
+    [RelayCommand] private void GoHome()     => NavigateToWelcome();
+    [RelayCommand] private void GoSettings() => NavigateToSettings();
+    [RelayCommand] private void GoCredits()  => NavigateToCredits();
+    [RelayCommand] private void ToggleSidebar() => IsSidebarVisible = !IsSidebarVisible;
+}
+
+
+
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\ViewModels\NoteEditorViewModel.cs ---
+----------------------------------------
+using System;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using NoteToolAvalonia.Models;
+using NoteToolAvalonia.Services;
+
+namespace NoteToolAvalonia.ViewModels;
+
+public partial class NoteEditorViewModel : ViewModelBase
+{
+    private readonly NoteyService _service;
+    private readonly NoteCard     _card;
+    private CancellationTokenSource? _autoSaveCts;
+    private int _autoSaveDelayMs;
+
+    // â”€â”€ Document â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    [ObservableProperty] private string _noteTitle;
+    [ObservableProperty] private string _noteContent;
+
+    // â”€â”€ Metadata (topbar) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    [ObservableProperty] private string  _category;
+    [ObservableProperty] private string  _tagsDisplay;        // comma-separated for editing
+    [ObservableProperty] private string  _deadlineText;       // human-readable
+    [ObservableProperty] private bool    _hasDeadline;
+    [ObservableProperty] private bool    _isOverdue;
+
+    // â”€â”€ References panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    [ObservableProperty] private bool _isReferencesPanelOpen;
+    [ObservableProperty] private ObservableCollection<NoteCard> _referencedNotes = new();
+    [ObservableProperty] private ObservableCollection<NoteCard> _allOtherNotes   = new();
+    [ObservableProperty] private string _referenceSearch = string.Empty;
+
+    // â”€â”€ Editor state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    [ObservableProperty] private bool   _hasUnsavedChanges;
+    [ObservableProperty] private bool   _showLineNumbers  = false;
+    [ObservableProperty] private bool   _wordWrapEnabled  = true;
+    [ObservableProperty] private bool   _showFindReplace  = false;
+    [ObservableProperty] private string _findText         = string.Empty;
+    [ObservableProperty] private string _replaceText      = string.Empty;
+    [ObservableProperty] private int    _findMatchCount;
+    [ObservableProperty] private int    _wordCount;
+    [ObservableProperty] private int    _characterCount;
+    [ObservableProperty] private int    _lineCount;
+    [ObservableProperty] private string _statusMessage    = string.Empty;
+    [ObservableProperty] private int    _undoCount;
+    [ObservableProperty] private int    _redoCount;
+
+    public ObservableCollection<NotePriority> PriorityLevels { get; } =
+        new(Enum.GetValues<NotePriority>());
+
+    [ObservableProperty] private NotePriority _selectedPriority;
+
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    //  INIT
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+    public NoteEditorViewModel(NoteCard card, NoteyService service)
+    {
+        _card    = card;
+        _service = service;
+
+        _noteTitle   = card.Title;
+        _noteContent = _service.LoadNoteContent(card.Id);
+        _category    = card.Category;
+        _tagsDisplay = string.Join(", ", card.Tags);
+        _selectedPriority = card.Priority;
+        _deadlineText = string.Empty;
+
+        if (card.Deadline.HasValue)
+        {
+            _hasDeadline  = true;
+            _deadlineText = card.Deadline.Value.ToString("MMM dd, yyyy");
+            _isOverdue    = card.Deadline.Value.Date < DateTime.Today;
+        }
+
+        _service.History.Clear();
+        _service.History.Snapshot(_noteContent);
+
+        LoadAutoSaveSettings();
+        UpdateStatistics();
+        LoadReferencedNotes();
+    }
+
+    private void LoadAutoSaveSettings()
+    {
+        try
+        {
+            var s = _service.LoadSettings();
+            _autoSaveDelayMs = s.AutoSave && s.AutoSaveInterval > 0
+                ? Math.Max(1000, s.AutoSaveInterval * 1000)
+                : int.MaxValue;
+        }
+        catch { _autoSaveDelayMs = 2500; }
+    }
+
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    //  PROPERTY CHANGE HOOKS
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+    partial void OnNoteContentChanged(string value)
+    {
+        HasUnsavedChanges = true;
+        UpdateStatistics();
+        ScheduleAutoSave();
+        UpdateFindMatches();
+    }
+
+    partial void OnNoteTitleChanged(string value)
+    {
+        HasUnsavedChanges = true;
+        ScheduleAutoSave();
+    }
+
+    partial void OnCategoryChanged(string value)
+    {
+        HasUnsavedChanges = true;
+        ScheduleAutoSave();
+    }
+
+    partial void OnTagsDisplayChanged(string value)
+    {
+        HasUnsavedChanges = true;
+        ScheduleAutoSave();
+    }
+
+    partial void OnFindTextChanged(string value) => UpdateFindMatches();
+
+    partial void OnReferenceSearchChanged(string value) => FilterReferenceSearch(value);
+
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    //  SAVE
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+    private void FlushToCard()
+    {
+        _card.Title    = string.IsNullOrWhiteSpace(NoteTitle) ? "Untitled Note" : NoteTitle.Trim();
+        _card.Category = Category.Trim();
+        _card.Priority = SelectedPriority;
+        _card.Tags     = TagsDisplay
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+    }
+
+    [RelayCommand]
+    private void Save()
+    {
+        FlushToCard();
+        _service.SaveNote(_card, NoteContent ?? string.Empty);
+        HasUnsavedChanges = false;
+        ShowStatus("Saved!");
+    }
+
+    private void AutoSave()
+    {
+        FlushToCard();
+        _service.History.Push(NoteContent, 0);
+        _service.SaveNote(_card, NoteContent ?? string.Empty);
+        UndoCount = _service.History.UndoCount;
+        RedoCount = _service.History.RedoCount;
+        HasUnsavedChanges = false;
+        ShowStatus("Auto-saved");
+    }
+
+    private void ScheduleAutoSave()
+    {
+        _autoSaveCts?.Cancel();
+        _autoSaveCts = new CancellationTokenSource();
+        if (_autoSaveDelayMs == int.MaxValue) return;
+
+        var token = _autoSaveCts.Token;
+        Task.Delay(_autoSaveDelayMs, token).ContinueWith(_ =>
+        {
+            if (!token.IsCancellationRequested)
+                Avalonia.Threading.Dispatcher.UIThread.Post(AutoSave);
+        }, token, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
+    }
+
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    //  NAVIGATION
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+    [RelayCommand]
+    private void GoBack()
+    {
+        if (HasUnsavedChanges) Save();
+        _service.NavigateToWelcome();
+    }
+
+    [RelayCommand]
+    private void Delete()
+    {
+        _service.DeleteNote(_card.Id);
+        _service.NavigateToWelcome();
+    }
+
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    //  UNDO / REDO
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+    [RelayCommand]
+    private void Undo()
+    {
+        var state = _service.History.Undo();
+        if (state is null) return;
+        NoteContent = state.Value.Content;
+        UndoCount   = _service.History.UndoCount;
+        RedoCount   = _service.History.RedoCount;
+        ShowStatus("â†¶ Undo");
+    }
+
+    [RelayCommand]
+    private void Redo()
+    {
+        var state = _service.History.Redo();
+        if (state is null) return;
+        NoteContent = state.Value.Content;
+        UndoCount   = _service.History.UndoCount;
+        RedoCount   = _service.History.RedoCount;
+        ShowStatus("â†· Redo");
+    }
+
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    //  DEADLINE
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+    [RelayCommand]
+    private void SetDeadline(string? dateStr)
+    {
+        if (DateTime.TryParse(dateStr, out var d))
+        {
+            _card.Deadline = d;
+            HasDeadline    = true;
+            DeadlineText   = d.ToString("MMM dd, yyyy");
+            IsOverdue      = d.Date < DateTime.Today;
+        }
+        HasUnsavedChanges = true;
+    }
+
+    [RelayCommand]
+    private void ClearDeadline()
+    {
+        _card.Deadline = null;
+        HasDeadline    = false;
+        DeadlineText   = string.Empty;
+        IsOverdue      = false;
+        HasUnsavedChanges = true;
+    }
+
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    //  REFERENCES PANEL
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+    [RelayCommand]
+    private void ToggleReferencesPanel()
+    {
+        IsReferencesPanelOpen = !IsReferencesPanelOpen;
+        if (IsReferencesPanelOpen) LoadAllOtherNotes();
+    }
+
+    [RelayCommand]
+    private void OpenReferencedNote(NoteCard card)
+    {
+        if (HasUnsavedChanges) Save();
+        _service.NavigateToNoteEditor(card);
+    }
+
+    [RelayCommand]
+    private void AddReference(NoteCard card)
+    {
+        if (_card.References.Contains(card.Id)) return;
+        _card.References.Add(card.Id);
+        HasUnsavedChanges = true;
+        LoadReferencedNotes();
+    }
+
+    [RelayCommand]
+    private void RemoveReference(NoteCard card)
+    {
+        _card.References.Remove(card.Id);
+        HasUnsavedChanges = true;
+        LoadReferencedNotes();
+    }
+
+    private void LoadReferencedNotes()
+    {
+        ReferencedNotes.Clear();
+        var index = _service.LoadNotesIndex();
+        foreach (var id in _card.References)
+        {
+            var note = index.FirstOrDefault(n => n.Id == id);
+            if (note != null) ReferencedNotes.Add(note);
+        }
+    }
+
+    private void LoadAllOtherNotes()
+    {
+        AllOtherNotes.Clear();
+        var index = _service.LoadNotesIndex();
+        foreach (var note in index.Where(n => n.Id != _card.Id))
+            AllOtherNotes.Add(note);
+    }
+
+    private void FilterReferenceSearch(string query)
+    {
+        var index = _service.LoadNotesIndex();
+        AllOtherNotes.Clear();
+        var results = string.IsNullOrWhiteSpace(query)
+            ? index.Where(n => n.Id != _card.Id)
+            : index.Where(n => n.Id != _card.Id &&
+                               n.Title.Contains(query, StringComparison.OrdinalIgnoreCase));
+        foreach (var n in results) AllOtherNotes.Add(n);
+    }
+
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    //  FIND & REPLACE
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+    [RelayCommand]
+    private void ShowFindReplacePanel()
+    {
+        ShowFindReplace = !ShowFindReplace;
+        if (!ShowFindReplace) { FindText = string.Empty; ReplaceText = string.Empty; }
+    }
+
+    private void UpdateFindMatches()
+    {
+        if (string.IsNullOrWhiteSpace(FindText) || string.IsNullOrWhiteSpace(NoteContent))
+        { FindMatchCount = 0; return; }
+        try { FindMatchCount = Regex.Matches(NoteContent, Regex.Escape(FindText), RegexOptions.IgnoreCase).Count; }
+        catch { FindMatchCount = 0; }
+    }
+
+    [RelayCommand]
+    private void ReplaceAll()
+    {
+        if (string.IsNullOrWhiteSpace(FindText)) return;
+        try
+        {
+            NoteContent = Regex.Replace(NoteContent, Regex.Escape(FindText), ReplaceText ?? string.Empty, RegexOptions.IgnoreCase);
+            ShowStatus($"Replaced {FindMatchCount} occurrences");
+        }
+        catch { ShowStatus("Replace failed"); }
+    }
+
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    //  TOOLBAR TOGGLES
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+    [RelayCommand] private void ToggleLineNumbers() => ShowLineNumbers = !ShowLineNumbers;
+    [RelayCommand] private void ToggleWordWrap()    => WordWrapEnabled  = !WordWrapEnabled;
+
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    //  HELPERS
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+    private void UpdateStatistics()
+    {
+        if (string.IsNullOrWhiteSpace(NoteContent))
+        { WordCount = 0; CharacterCount = 0; LineCount = 0; return; }
+
+        WordCount      = NoteContent.Split(new[] { ' ', '\n', '\r', '\t' },
+                             StringSplitOptions.RemoveEmptyEntries).Length;
+        CharacterCount = NoteContent.Length;
+        LineCount      = NoteContent.Split('\n').Length;
+    }
+
+    private void ShowStatus(string msg)
+    {
+        StatusMessage = msg;
+        Task.Delay(2000).ContinueWith(_ =>
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (StatusMessage == msg) StatusMessage = string.Empty;
+            }));
+    }
+}
+
+
+
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\ViewModels\SettingsViewModel.cs ---
+----------------------------------------
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Platform.Storage;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using NoteToolAvalonia.Models;
+using NoteToolAvalonia.Services;
+
+namespace NoteToolAvalonia.ViewModels;
+
+public partial class SettingsViewModel : ViewModelBase
+{
+    private readonly NoteyService _service;
+
+    [ObservableProperty] private string _statusMessage       = "";
+    [ObservableProperty] private string _selectedTheme       = "Dark";
+    [ObservableProperty] private bool   _autoSave            = true;
+    [ObservableProperty] private int    _autoSaveInterval    = 2;
+    [ObservableProperty] private bool   _confirmBeforeDelete = true;
+    [ObservableProperty] private bool   _showCompletedNotes  = true;
+
+    // Storage location â€” shown read-only unless user browses to override
+    [ObservableProperty] private string _dataFolderPath      = "";
+
+    public List<string> Themes { get; } = new() { "Dark", "Light", "System" };
+
+    public SettingsViewModel(NoteyService service)
+    {
+        _service        = service;
+        _dataFolderPath = _service.DataFolder;   // populate from service on init
+
+        var settings = _service.LoadSettings();
+        LoadFromModel(settings);
+        ApplyFontSettings();
+    }
+
+    // â”€â”€ Load / Save â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    private void LoadFromModel(AppSettings s)
+    {
+        SelectedTheme       = s.Theme ?? "Dark";
+        AutoSave            = s.AutoSave;
+        AutoSaveInterval    = s.AutoSaveInterval;
+        ConfirmBeforeDelete = s.ConfirmBeforeDelete;
+        ShowCompletedNotes  = s.ShowCompletedNotes;
+    }
+
+    [RelayCommand]
+    private void SaveSettings()
+    {
+        _service.SaveSettings(new AppSettings
+        {
+            Theme               = SelectedTheme,
+            FontFamily          = "Inter",
+            FontSize            = 15,
+            AutoSave            = AutoSave,
+            AutoSaveInterval    = AutoSaveInterval,
+            ConfirmBeforeDelete = ConfirmBeforeDelete,
+            ShowCompletedNotes  = ShowCompletedNotes
+        });
+
+        // Re-apply theme / font immediately without restart
+        if (Application.Current?.ApplicationLifetime
+            is IClassicDesktopStyleApplicationLifetime
+               { MainWindow.DataContext: MainWindowViewModel mainVm })
+        {
+            mainVm.ApplyAppSettings();
+        }
+
+        StatusMessage = "Settings saved!";
+    }
+
+    [RelayCommand]
+    private void ResetDefaults()
+    {
+        LoadFromModel(new AppSettings
+        {
+            AutoSaveInterval = 2,
+            FontSize         = 15,
+            FontFamily       = "Inter",
+            Theme            = "Dark"
+        });
+        StatusMessage = "Reset to defaults.";
+    }
+
+    [RelayCommand]
+    private void GoBack()
+    {
+        if (Application.Current?.ApplicationLifetime
+            is IClassicDesktopStyleApplicationLifetime
+               { MainWindow.DataContext: MainWindowViewModel mainVm })
+        {
+            mainVm.NavigateToWelcome();
+        }
+    }
+
+    // â”€â”€ Browse for a custom notes folder â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    [RelayCommand]
+    private async Task BrowseFolder()
+    {
+        if (Application.Current?.ApplicationLifetime
+            is not IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
+            return;
+
+        var topLevel = TopLevel.GetTopLevel(window);
+        if (topLevel == null) return;
+
+        var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(
+            new FolderPickerOpenOptions
+            {
+                Title       = "Select Notes Folder",
+                AllowMultiple = false
+            });
+
+        if (folders.Count > 0)
+            DataFolderPath = folders[0].Path.LocalPath;
+    }
+
+    // â”€â”€ Font / theme side-effects â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    private static void ApplyFontSettings()
+    {
+        if (Application.Current == null) return;
+        Application.Current.Resources["AppFontFamily"] =
+            new Avalonia.Media.FontFamily("Inter");
+        Application.Current.Resources["AppFontSize"] = 15.0;
+    }
+}
+
+
+
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\ViewModels\ViewModelBase.cs ---
+----------------------------------------
+using CommunityToolkit.Mvvm.ComponentModel;
+
+namespace NoteToolAvalonia.ViewModels;
+
+public abstract class ViewModelBase : ObservableObject
+{
+	public string CurrentFontFamily { get; set; } = "Segoe UI";
+	public double CurrentFontSize { get; set; } = 14;
+}
+
+
+
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\ViewModels\WelcomeViewModel.cs ---
+----------------------------------------
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using NoteToolAvalonia.Models;
+using NoteToolAvalonia.Services;
+
+namespace NoteToolAvalonia.ViewModels;
+
+public partial class WelcomeViewModel : ViewModelBase
+{
+    private readonly NoteyService _service;
+    private List<NoteCard> _allNotes = new();
+
+    [ObservableProperty] private ObservableCollection<NoteCard> _filteredNotes = new();
+
+    // â”€â”€ Filters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    [ObservableProperty] private string _searchText             = string.Empty;
+    [ObservableProperty] private string _selectedCategory       = "All";
+    [ObservableProperty] private string _selectedDeadlineFilter = "All";
+    [ObservableProperty] private string _selectedSort           = "Newest";
+    [ObservableProperty] private bool   _showCompleted          = true;
+
+    // â”€â”€ Creator overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    [ObservableProperty] private bool   _isCreatingNote  = false;
+    [ObservableProperty] private string _newNoteTitle    = string.Empty;
+    [ObservableProperty] private string _newNoteCategory = string.Empty;
+    [ObservableProperty] private string _newNoteTags     = string.Empty;
+    [ObservableProperty] private string _newNoteDeadline = string.Empty;
+    [ObservableProperty] private int    _creatorStep     = 1;
+
+    // â”€â”€ Filter lists â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    public ObservableCollection<string> Categories      { get; } = new() { "All" };
+    public List<string> DeadlineFilters { get; } = new() { "All", "Overdue", "This Week", "No Deadline" };
+    public List<string> SortOptions     { get; } = new() { "Newest", "Oldest", "A â†’ Z", "Z â†’ A", "Deadline" };
+
+    // â”€â”€ Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    public int TotalNotes     => _allNotes.Count;
+    public int CompletedNotes => _allNotes.Count(n => n.IsCompleted);
+    public int OverdueNotes   => _allNotes.Count(n =>
+        n.Deadline.HasValue && n.Deadline.Value.Date < DateTime.Today && !n.IsCompleted);
+
+    public WelcomeViewModel(NoteyService service)
+    {
+        _service = service;
+        LoadNotes();
+    }
+
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    //  LOADING
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+    private void LoadNotes()
+    {
+        _allNotes = _service.LoadNotesIndex();
+        RebuildCategoryList();
+        ApplyFilters();
+        OnPropertyChanged(nameof(TotalNotes));
+        OnPropertyChanged(nameof(CompletedNotes));
+        OnPropertyChanged(nameof(OverdueNotes));
+    }
+
+    private void RebuildCategoryList()
+    {
+        var current = SelectedCategory;
+        Categories.Clear();
+        Categories.Add("All");
+        foreach (var cat in _allNotes
+                     .Select(n => n.Category)
+                     .Where(c => !string.IsNullOrWhiteSpace(c))
+                     .Distinct().OrderBy(c => c))
+            Categories.Add(cat);
+        SelectedCategory = Categories.Contains(current) ? current : "All";
+    }
+
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    //  FILTERS
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+    partial void OnSearchTextChanged(string value)             => ApplyFilters();
+    partial void OnSelectedCategoryChanged(string value)       => ApplyFilters();
+    partial void OnSelectedDeadlineFilterChanged(string value) => ApplyFilters();
+    partial void OnSelectedSortChanged(string value)           => ApplyFilters();
+    partial void OnShowCompletedChanged(bool value)            => ApplyFilters();
+
+    private void ApplyFilters()
+    {
+        var result = _allNotes.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(SearchText))
+            result = result.Where(n =>
+                n.Title.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+                n.Category.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+                n.Tags.Any(t => t.Contains(SearchText, StringComparison.OrdinalIgnoreCase)));
+
+        if (SelectedCategory != "All")
+            result = result.Where(n => n.Category == SelectedCategory);
+
+        if (!ShowCompleted)
+            result = result.Where(n => !n.IsCompleted);
+
+        result = SelectedDeadlineFilter switch
+        {
+            "Overdue"     => result.Where(n => n.Deadline.HasValue && n.Deadline.Value.Date < DateTime.Today),
+            "This Week"   => result.Where(n => n.Deadline.HasValue &&
+                                               n.Deadline.Value.Date >= DateTime.Today &&
+                                               n.Deadline.Value.Date <= DateTime.Today.AddDays(7)),
+            "No Deadline" => result.Where(n => !n.Deadline.HasValue),
+            _             => result
+        };
+
+        result = SelectedSort switch
+        {
+            "Oldest"   => result.OrderBy(n => n.CreatedAt),
+            "A â†’ Z"    => result.OrderBy(n => n.Title, StringComparer.OrdinalIgnoreCase),
+            "Z â†’ A"    => result.OrderByDescending(n => n.Title, StringComparer.OrdinalIgnoreCase),
+            "Deadline" => result.OrderBy(n => n.Deadline ?? DateTime.MaxValue),
+            _          => result.OrderByDescending(n => n.LastModified)
+        };
+
+        FilteredNotes = new ObservableCollection<NoteCard>(result);
+    }
+
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    //  NOTE ACTIONS
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+    [RelayCommand]
+    private void OpenNote(NoteCard card) =>
+        _service.NavigateToNoteEditor(card);   // via NoteyService, never via ApplicationLifetime
+
+    [RelayCommand]
+    private void DeleteNote(NoteCard card)
+    {
+        _service.DeleteNote(card.Id);
+        LoadNotes();
+    }
+
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    //  NOTE CREATOR
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+    [RelayCommand]
+    private void ShowCreateNote()
+    {
+        NewNoteTitle = NewNoteCategory = NewNoteTags = NewNoteDeadline = string.Empty;
+        CreatorStep    = 1;
+        IsCreatingNote = true;
+    }
+
+    [RelayCommand] private void CreatorNext() { if (CreatorStep < 4) CreatorStep++; }
+    [RelayCommand] private void CreatorBack() { if (CreatorStep > 1) CreatorStep--; }
+    [RelayCommand] private void CancelCreateNote() => IsCreatingNote = false;
+
+    [RelayCommand]
+    private void CreateNote()
+    {
+        if (string.IsNullOrWhiteSpace(NewNoteTitle)) return;
+
+        DateTime? deadline = DateTime.TryParse(NewNoteDeadline, out var d) ? d : null;
+
+        var card = new NoteCard
+        {
+            Title    = NewNoteTitle.Trim(),
+            Category = NewNoteCategory.Trim(),
+            Tags     = NewNoteTags
+                           .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                           .ToList(),
+            Deadline = deadline
+        };
+
+        _service.SaveNote(card, string.Empty);
+        IsCreatingNote = false;
+        LoadNotes();
+
+        _service.NavigateToNoteEditor(card);
+    }
+}
+
+
+
+
+========================================
+FOLDER: Views
+========================================
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Views\CreditsView.axaml ---
+----------------------------------------
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NoteToolAvalonia.ViewModels"
+             xmlns:local="using:NoteToolAvalonia.Views"
+             x:Class="NoteToolAvalonia.Views.CreditsView"
+             x:DataType="vm:CreditsViewModel">
+
+    <UserControl.Resources>
+        <local:UrlToBitmapConverter x:Key="UrlToBitmapConverter"/>
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <Style Selector="Border.credit-card:pointerover">
+            <Setter Property="Background" Value="{StaticResource Brush.SurfaceAlt}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
+            <Setter Property="RenderTransform" Value="translateX(16px)"/>
+            <Setter Property="ZIndex" Value="10"/>
+        </Style>
+
+        <Style Selector="Border.credit-card">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.25"/>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.25"/>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.25"/>
+                </Transitions>
+            </Setter>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid>
+        <ScrollViewer VerticalScrollBarVisibility="Visible" 
+                      HorizontalScrollBarVisibility="Disabled">
+            
+            <StackPanel Spacing="60" Margin="60,40,80,80">
+
+                <StackPanel Spacing="16">
+                    <TextBlock Text="Credits" 
+                               FontSize="42" 
+                               FontWeight="Bold" 
+                               Foreground="{StaticResource Brush.Accent}"/>
+                    <TextBlock Text="The people and projects behind Notey" 
+                               FontSize="18" 
+                               Foreground="{StaticResource Brush.TextSecondary}"/>
+                    <Separator Background="{StaticResource Brush.Border}" Height="1" Margin="0,20,0,0"/>
+                </StackPanel>
+
+                <ItemsControl ItemsSource="{Binding Credits}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid ColumnDefinitions="Auto, *" Margin="0,0,0,10">
+                                
+                                <Grid Grid.Column="0" Width="60" RowDefinitions="Auto, *">
+                                    <Ellipse Width="16" Height="16" 
+                                             Fill="{StaticResource Brush.Accent}" 
+                                             Margin="0,42,0,0"
+                                             ZIndex="2"/>
+                                    <Rectangle Grid.Row="1" Width="2" 
+                                               HorizontalAlignment="Center"
+                                               Fill="{StaticResource Brush.Border}" 
+                                               Margin="0,10,0,0"
+                                               MinHeight="100"/>
+                                </Grid>
+
+                                <Border Grid.Column="1" 
+                                        Classes="credit-card"
+                                        Margin="20,0,0,30"
+                                        Padding="32"
+                                        Background="{StaticResource Brush.Surface}"
+                                        BorderBrush="{StaticResource Brush.Border}"
+                                        BorderThickness="1"
+                                        CornerRadius="16"
+                                        Cursor="Hand"
+                                        ClipToBounds="False"
+                                        PointerPressed="CreditTile_PointerPressed">
+
+                                    <DockPanel LastChildFill="True">
+                                        <Border DockPanel.Dock="Left" 
+                                                Width="80" 
+                                                Height="80" 
+                                                CornerRadius="40" 
+                                                ClipToBounds="True"
+                                                Background="{StaticResource Brush.SurfaceAlt}"
+                                                Margin="0,0,32,0">
+                                            <Image Source="{Binding IconPath, Converter={StaticResource UrlToBitmapConverter}}"
+                                                   Stretch="UniformToFill"/>
+                                        </Border>
+
+                                        <TextBlock DockPanel.Dock="Right" 
+                                                   Text="VIEW PROJECT â†—" 
+                                                   FontSize="12" 
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" 
+                                                   Foreground="{StaticResource Brush.Accent}"
+                                                   Opacity="0.7"/>
+
+                                        <StackPanel VerticalAlignment="Center" Spacing="8">
+                                            <TextBlock Text="{Binding Name}" 
+                                                       FontSize="24" 
+                                                       FontWeight="Bold" 
+                                                       Foreground="{StaticResource Brush.TextPrimary}"/>
+                                            <TextBlock Text="{Binding Role}" 
+                                                       FontSize="15" 
+                                                       Foreground="{StaticResource Brush.TextSecondary}"/>
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>
+
+
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Views\CreditsView.axaml.cs ---
+----------------------------------------
+using Avalonia.Controls;
+using Avalonia.Data.Converters;
+using Avalonia.Input;
+using Avalonia.Media.Imaging;
+using NoteToolAvalonia.ViewModels;
+using System;
+using System.Diagnostics;
+using System.Globalization;
+using System.IO;
+using System.Net.Http;
+
+namespace NoteToolAvalonia.Views;
+
+/// <summary>
+/// Converts a URL string into an Avalonia Bitmap for use in Image controls.
+/// Works for both local file paths and remote https:// URLs.
+/// Can be reused in any project â€” just register it as a resource in your AXAML.
+/// </summary>
+public class UrlToBitmapConverter : IValueConverter
+{
+    private static readonly HttpClient _httpClient = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is not string url || string.IsNullOrWhiteSpace(url))
+            return null;
+
+        if (url.StartsWith("http://") || url.StartsWith("https://"))
+        {
+            try
+            {
+                var bytes = _httpClient.GetByteArrayAsync(url).GetAwaiter().GetResult();
+                using var stream = new MemoryStream(bytes);
+                return new Bitmap(stream);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        if (File.Exists(url))
+        {
+            try { return new Bitmap(url); }
+            catch { return null; }
+        }
+
+        return null;
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+public partial class CreditsView : UserControl
+{
+    public CreditsView()
+    {
+        InitializeComponent();
+    }
+
+    private void CreditTile_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is Border border && border.DataContext is CreditItem creditItem)
+        {
+            if (!string.IsNullOrEmpty(creditItem.Url))
+            {
+                try
+                {
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = creditItem.Url,
+                        UseShellExecute = true
+                    });
+                }
+                catch { }
+            }
+        }
+    }
+}
+
+
+
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Views\MainWindow.axaml ---
+----------------------------------------
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NoteToolAvalonia.ViewModels"
+        xmlns:views="using:NoteToolAvalonia.Views"
+        x:Class="NoteToolAvalonia.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="{Binding Title}"
+        Width="1280" Height="800"
+        MinWidth="900" MinHeight="600"
+        Background="{StaticResource Brush.Background}"
+        WindowStartupLocation="CenterScreen"
+        FontFamily="{Binding CurrentFontFamily}"
+        FontSize="{Binding CurrentFontSize}">
+
+  <DockPanel>
+
+    <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+         SIDEBAR
+         â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+    <Border Classes="sidebar"
+            DockPanel.Dock="Left"
+            Width="220"
+            IsVisible="{Binding IsSidebarVisible}">
+      <DockPanel>
+
+        <!-- Logo -->
+        <Border DockPanel.Dock="Top"
+                Background="{StaticResource Brush.Surface}"
+                Padding="20,22" Margin="0,0,0,8">
+          <StackPanel Spacing="3">
+            <TextBlock Text="Notey"
+                       FontSize="20" FontWeight="Bold"
+                       Foreground="{StaticResource Brush.TextPrimary}"
+                       HorizontalAlignment="Center"/>
+            <TextBlock Text="Knowledge Base"
+                       FontSize="10" Foreground="#888"
+                       HorizontalAlignment="Center"/>
+          </StackPanel>
+        </Border>
+
+        <!-- Nav -->
+        <StackPanel DockPanel.Dock="Top" Margin="8,8,8,0" Spacing="2">
+
+          <TextBlock Text="NAVIGATE"
+                     FontSize="10" LetterSpacing="1"
+                     Foreground="#555" Margin="12,0,0,6"/>
+
+          <Button Classes="sidebar-btn" Command="{Binding GoHomeCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <Border Width="22" Height="22" CornerRadius="4" Background="#2a2a2e">
+                <TextBlock Text="âŒ‚" FontSize="14"
+                           Foreground="{StaticResource Brush.Accent}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Border>
+              <TextBlock Text="Notes" VerticalAlignment="Center" FontSize="13"/>
+            </StackPanel>
+          </Button>
+
+          <Button Classes="sidebar-btn" Command="{Binding GoSettingsCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <Border Width="22" Height="22" CornerRadius="4" Background="#2a2a2e">
+                <TextBlock Text="âš™" FontSize="14"
+                           Foreground="{StaticResource Brush.Accent}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Border>
+              <TextBlock Text="Settings" VerticalAlignment="Center" FontSize="13"/>
+            </StackPanel>
+          </Button>
+
+          <Button Classes="sidebar-btn" Command="{Binding GoCreditsCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <Border Width="22" Height="22" CornerRadius="4" Background="#2a2a2e">
+                <TextBlock Text="â™¥" FontSize="14"
+                           Foreground="{StaticResource Brush.Accent}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Border>
+              <TextBlock Text="Credits" VerticalAlignment="Center" FontSize="13"/>
+            </StackPanel>
+          </Button>
+
+        </StackPanel>
+
+        <!-- Footer -->
+        <StackPanel DockPanel.Dock="Bottom" Margin="16,0,16,18">
+          <Separator Background="{StaticResource Brush.Border}" Margin="0,0,0,12"/>
+          <TextBlock Text="v2.0.0"
+                     FontSize="10" Foreground="#555"
+                     HorizontalAlignment="Center"/>
+          <TextBlock Text="Avalonia UI"
+                     FontSize="9" Foreground="#444"
+                     HorizontalAlignment="Center" Margin="0,2,0,0"/>
+        </StackPanel>
+
+        <Panel/>
+      </DockPanel>
+    </Border>
+
+    <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+         HAMBURGER TOGGLE
+         â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+    <Border DockPanel.Dock="Left" Background="#252526" Width="44">
+      <Button Command="{Binding ToggleSidebarCommand}"
+              VerticalAlignment="Top"
+              HorizontalAlignment="Center"
+              Margin="0,14,0,0"
+              Background="Transparent"
+              Padding="8"
+              ToolTip.Tip="Toggle Sidebar"
+              Cursor="Hand">
+        <Button.Styles>
+          <Style Selector="Button:pointerover">
+            <Setter Property="Background" Value="#333337"/>
+          </Style>
+        </Button.Styles>
+        <TextBlock Text="â˜°" FontSize="18" Foreground="#CCC"/>
+      </Button>
+    </Border>
+
+    <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+         MAIN CONTENT
+         â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+    <ContentControl Content="{Binding CurrentView}">
+      <ContentControl.DataTemplates>
+        <DataTemplate DataType="{x:Type vm:WelcomeViewModel}">
+          <views:WelcomeView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:NoteEditorViewModel}">
+          <views:NoteEditorView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+          <views:SettingsView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:CreditsViewModel}">
+          <views:CreditsView/>
+        </DataTemplate>
+      </ContentControl.DataTemplates>
+    </ContentControl>
+
+  </DockPanel>
+</Window>
+
+
+
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Views\MainWindow.axaml.cs ---
+----------------------------------------
+using Avalonia.Controls;
+
+namespace NoteToolAvalonia.Views;
+
+public partial class MainWindow : Window
+{
+    public MainWindow() { InitializeComponent(); }
+}
+
+
+
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Views\MarkdownEditorOnly.axaml ---
+----------------------------------------
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:muc="clr-namespace:MarkdownUIComponent;assembly=MarkdownUIComponent"
+             x:Class="NoteToolAvalonia.Views.MarkdownEditorOnly">
+    <muc:CustomMarkdownEditor Name="Inner" />
+</UserControl>
+
+
+
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Views\MarkdownEditorOnly.axaml.cs ---
+----------------------------------------
+using System.Linq;
+using Avalonia.Controls;
+using Avalonia.Media;
+using Avalonia.VisualTree;
+using MarkdownUIComponent;
+
+namespace NoteToolAvalonia.Views;
+
+public partial class MarkdownEditorOnly : UserControl
+{
+    public MarkdownEditorOnly()
+    {
+        InitializeComponent();
+        Loaded += (_, _) => FixEditorForeground();
+    }
+
+    // ponytail: the shipped MarkdownUIComponent.dll hardcodes
+    // EditorInput.Foreground = 0x00FFFFFF (fully transparent ARGB) in
+    // !XamlIlPopulate, so plain text is invisible until the WYSIWYG overlay
+    // paints styled inlines. The overlay only repaints on Markdown-set /
+    // TextChanged, so a fresh open shows nothing. Force an opaque brush so
+    // user-typed characters are visible. Drop this when the control grows a
+    // public theme / set_Foreground hook.
+    private void FixEditorForeground()
+    {
+        var input = Inner.GetVisualDescendants()
+                         .OfType<TextBox>()
+                         .FirstOrDefault(t => t.Name == "EditorInput");
+        if (input is not null)
+            input.Foreground = Brushes.White;
+    }
+}
+
+
+
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Views\NoteEditorView.axaml ---
+----------------------------------------
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NoteToolAvalonia.ViewModels"
+             xmlns:local="using:NoteToolAvalonia.Views"
+             xmlns:converters="using:NoteToolAvalonia.Converters"
+             x:Class="NoteToolAvalonia.Views.NoteEditorView"
+             x:DataType="vm:NoteEditorViewModel">
+
+  <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
+
+    <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+         ROW 0 â€” Top bar
+         â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+    <Border Grid.Row="0"
+            Background="{StaticResource Brush.Surface}"
+            BorderBrush="{StaticResource Brush.Border}"
+            BorderThickness="0,0,0,1"
+            Padding="16,10">
+      <DockPanel>
+
+        <!-- Back -->
+        <Button DockPanel.Dock="Left"
+                Command="{Binding GoBackCommand}"
+                Background="Transparent" BorderThickness="0"
+                Padding="8,6" Cursor="Hand" Margin="0,0,12,0">
+          <TextBlock Text="â† Back" Foreground="{StaticResource Brush.Accent}" FontSize="13"/>
+        </Button>
+
+        <!-- Right-side actions -->
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8">
+          <Button Command="{Binding ToggleReferencesPanelCommand}"
+                  Background="{StaticResource Brush.SurfaceAlt}"
+                  CornerRadius="6" Padding="10,6" Cursor="Hand"
+                  ToolTip.Tip="References">
+            <TextBlock Text="ðŸ”— References" FontSize="12"
+                       Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+          <Button Command="{Binding SaveCommand}"
+                  Classes="accent" Padding="16,6">
+            <TextBlock Text="Save" FontSize="13"/>
+          </Button>
+          <Button Command="{Binding DeleteCommand}"
+                  Background="#c0392b" CornerRadius="6"
+                  Padding="10,6" Cursor="Hand"
+                  ToolTip.Tip="Delete note">
+            <TextBlock Text="ðŸ—‘" FontSize="13" Foreground="White"/>
+          </Button>
+        </StackPanel>
+
+        <!-- Title -->
+        <TextBox DockPanel.Dock="Left"
+                 Text="{Binding NoteTitle, Mode=TwoWay}"
+                 FontSize="18" FontWeight="Bold"
+                 Background="Transparent" BorderThickness="0"
+                 VerticalAlignment="Center"
+                 Watermark="Note title..."
+                 Foreground="{StaticResource Brush.TextPrimary}"/>
+
+      </DockPanel>
+    </Border>
+
+    <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+         ROW 1 â€” Metadata bar (category, tags, deadline)
+         â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+    <Border Grid.Row="1"
+            Background="{StaticResource Brush.Background}"
+            BorderBrush="{StaticResource Brush.Border}"
+            BorderThickness="0,0,0,1"
+            Padding="24,8">
+      <StackPanel Orientation="Horizontal" Spacing="16">
+
+        <!-- Category chip -->
+        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <TextBlock Text="ðŸ“" FontSize="12" VerticalAlignment="Center"/>
+          <TextBox Text="{Binding Category, Mode=TwoWay}"
+                   Watermark="Category..."
+                   FontSize="12"
+                   Background="Transparent"
+                   BorderThickness="0,0,0,1"
+                   BorderBrush="{StaticResource Brush.Border}"
+                   Padding="4,2"
+                   MinWidth="80"
+                   Foreground="{StaticResource Brush.TextPrimary}"/>
+        </StackPanel>
+
+        <Border Width="1" Background="{StaticResource Brush.Border}" Margin="0,4"/>
+
+        <!-- Tags -->
+        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <TextBlock Text="ðŸ·" FontSize="12" VerticalAlignment="Center"/>
+          <TextBox Text="{Binding TagsDisplay, Mode=TwoWay}"
+                   Watermark="Tags (comma-separated)..."
+                   FontSize="12"
+                   Background="Transparent"
+                   BorderThickness="0,0,0,1"
+                   BorderBrush="{StaticResource Brush.Border}"
+                   Padding="4,2"
+                   MinWidth="160"
+                   Foreground="{StaticResource Brush.TextPrimary}"/>
+        </StackPanel>
+
+        <Border Width="1" Background="{StaticResource Brush.Border}" Margin="0,4"/>
+
+        <!-- Deadline -->
+        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <TextBlock Text="ðŸ“…" FontSize="12" VerticalAlignment="Center"/>
+          <Border IsVisible="{Binding HasDeadline}"
+                  Background="{Binding IsOverdue, Converter={x:Static converters:DeadlineBgConverter.Instance}}"
+                  CornerRadius="4" Padding="6,2">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="{Binding DeadlineText}"
+                         FontSize="12"
+                         Foreground="{Binding IsOverdue, Converter={x:Static converters:DeadlineFgConverter.Instance}}"/>
+              <Button Command="{Binding ClearDeadlineCommand}"
+                      Background="Transparent" BorderThickness="0"
+                      Padding="0" Cursor="Hand">
+                <TextBlock Text="Ã—" FontSize="12"
+                           Foreground="{StaticResource Brush.TextSecondary}"/>
+              </Button>
+            </StackPanel>
+          </Border>
+          <TextBox IsVisible="{Binding !HasDeadline}"
+                   Text="{Binding DeadlineText, Mode=TwoWay}"
+                   Watermark="YYYY-MM-DD..."
+                   FontSize="12"
+                   Background="Transparent"
+                   BorderThickness="0,0,0,1"
+                   BorderBrush="{StaticResource Brush.Border}"
+                   Padding="4,2"
+                   MinWidth="100"
+                   Foreground="{StaticResource Brush.TextPrimary}"
+                   Name="DeadlineBox"/>
+          <Button IsVisible="{Binding !HasDeadline}"
+                  Command="{Binding SetDeadlineCommand}"
+                  CommandParameter="{Binding DeadlineText}"
+                  Background="Transparent" BorderThickness="0"
+                  Padding="4,2" Cursor="Hand">
+            <TextBlock Text="Set" FontSize="11"
+                       Foreground="{StaticResource Brush.Accent}"/>
+          </Button>
+        </StackPanel>
+
+      </StackPanel>
+    </Border>
+
+    <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+         ROW 2 â€” Toolbar
+         â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+    <Border Grid.Row="2"
+            Background="{StaticResource Brush.Surface}"
+            BorderBrush="{StaticResource Brush.Border}"
+            BorderThickness="0,0,0,1"
+            Padding="12,6">
+      <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                    VerticalScrollBarVisibility="Disabled">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+
+          <!-- Undo / Redo -->
+          <Button Command="{Binding UndoCommand}"
+                  ToolTip.Tip="Undo (Ctrl+Z)"
+                  Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+              <TextBlock Text="â†¶" FontSize="14" Foreground="{StaticResource Brush.TextPrimary}"/>
+              <TextBlock Text="{Binding UndoCount}" FontSize="11"
+                         Foreground="{StaticResource Brush.TextSecondary}"/>
+            </StackPanel>
+          </Button>
+          <Button Command="{Binding RedoCommand}"
+                  ToolTip.Tip="Redo (Ctrl+Y)"
+                  Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+              <TextBlock Text="â†·" FontSize="14" Foreground="{StaticResource Brush.TextPrimary}"/>
+              <TextBlock Text="{Binding RedoCount}" FontSize="11"
+                         Foreground="{StaticResource Brush.TextSecondary}"/>
+            </StackPanel>
+          </Button>
+
+          <Separator Background="{StaticResource Brush.Border}" Margin="6,0"/>
+
+          <!-- Formatting -->
+          <Button Name="BoldButton"       ToolTip.Tip="Bold (Ctrl+B)"  Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="ð" FontSize="14" FontWeight="Bold" Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+          <Button Name="ItalicButton"     ToolTip.Tip="Italic (Ctrl+I)" Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="ð˜" FontSize="14" FontStyle="Italic" Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+          <Button Name="StrikeButton"     ToolTip.Tip="Strikethrough"   Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="SÌ¶" FontSize="14" Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+          <Button Name="CodeButton"       ToolTip.Tip="Inline code"     Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="`" FontSize="14" FontWeight="Bold" Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+
+          <Separator Background="{StaticResource Brush.Border}" Margin="6,0"/>
+
+          <Button Name="H1Button" ToolTip.Tip="Heading 1" Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="H1" FontSize="12" FontWeight="Bold" Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+          <Button Name="H2Button" ToolTip.Tip="Heading 2" Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="H2" FontSize="12" FontWeight="Bold" Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+          <Button Name="H3Button" ToolTip.Tip="Heading 3" Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="H3" FontSize="12" FontWeight="Bold" Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+
+          <Separator Background="{StaticResource Brush.Border}" Margin="6,0"/>
+
+          <Button Name="BulletButton"    ToolTip.Tip="Bullet list"   Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="â€¢" FontSize="14" Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+          <Button Name="NumberedButton"  ToolTip.Tip="Numbered list" Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="1." FontSize="12" FontWeight="Bold" Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+          <Button Name="ChecklistButton" ToolTip.Tip="Checklist"     Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="â˜‘" FontSize="14" Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+          <Button Name="QuoteButton"     ToolTip.Tip="Quote"         Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="&gt;" FontSize="14" Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+          <Button Name="TableButton"     ToolTip.Tip="Insert table"  Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="âŠž" FontSize="14" Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+          <Button Name="HRButton"        ToolTip.Tip="Horizontal rule" Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="â€”" FontSize="14" Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+
+          <Separator Background="{StaticResource Brush.Border}" Margin="6,0"/>
+
+          <Button Command="{Binding ToggleLineNumbersCommand}"
+                  ToolTip.Tip="Line Numbers"
+                  Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="â„–" FontSize="13" Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+          <Button Command="{Binding ToggleWordWrapCommand}"
+                  ToolTip.Tip="Word Wrap (Ctrl+Shift+W)"
+                  Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="â†µ" FontSize="14" Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+          <Button Command="{Binding ShowFindReplacePanelCommand}"
+                  ToolTip.Tip="Find &amp; Replace (Ctrl+H)"
+                  Padding="8,4" Background="{StaticResource Brush.SurfaceAlt}">
+            <TextBlock Text="âŒ•" FontSize="14" Foreground="{StaticResource Brush.TextPrimary}"/>
+          </Button>
+
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+         ROW 3 â€” Editor + References side panel
+         â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+    <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
+
+      <!-- Find & Replace overlay (floats at top of editor) -->
+      <Grid Grid.Column="0" RowDefinitions="Auto,*">
+        <Border Grid.Row="0"
+                IsVisible="{Binding ShowFindReplace}"
+                Background="{StaticResource Brush.Surface}"
+                BorderBrush="{StaticResource Brush.Border}"
+                BorderThickness="0,0,0,1"
+                Padding="16,10">
+          <Grid ColumnDefinitions="Auto,*,Auto,*,Auto">
+            <TextBlock Grid.Column="0" Text="Find:" VerticalAlignment="Center"
+                       Foreground="{StaticResource Brush.TextPrimary}" Margin="0,0,8,0"/>
+            <TextBox Grid.Column="1"
+                     Text="{Binding FindText, Mode=TwoWay}"
+                     Watermark="Search..." Margin="0,0,8,0"/>
+            <TextBlock Grid.Column="2"
+                       Foreground="{StaticResource Brush.TextSecondary}"
+                       VerticalAlignment="Center" Margin="0,0,16,0">
+              <Run Text="{Binding FindMatchCount}"/>
+              <Run Text=" matches"/>
+            </TextBlock>
+            <TextBox Grid.Column="3"
+                     Text="{Binding ReplaceText, Mode=TwoWay}"
+                     Watermark="Replace with..." Margin="0,0,8,0"/>
+            <Button Grid.Column="4"
+                    Command="{Binding ReplaceAllCommand}"
+                    Classes="accent" Padding="12,6" Content="Replace All"/>
+          </Grid>
+        </Border>
+
+        <!-- Single-pane markdown editor (left half of CustomMarkdownEditor, preview hidden) -->
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*">
+          <!-- Line numbers sidebar -->
+          <Border Grid.Column="0"
+                  IsVisible="{Binding ShowLineNumbers}"
+                  Background="{StaticResource Brush.SurfaceAlt}"
+                  BorderBrush="{StaticResource Brush.Border}"
+                  BorderThickness="0,0,1,0"
+                  Padding="8,30,8,0" MinWidth="48">
+            <TextBlock Name="LineNumbersPanel"
+                       Foreground="{StaticResource Brush.TextSecondary}"
+                       FontFamily="Cascadia Code, Consolas, monospace"
+                       FontSize="13" TextAlignment="Right"/>
+          </Border>
+
+          <local:MarkdownEditorOnly Grid.Column="1" Name="MarkdownEditorHost" />
+        </Grid>
+      </Grid>
+
+      <!-- References side panel -->
+      <Border Grid.Column="1"
+              IsVisible="{Binding IsReferencesPanelOpen}"
+              Width="300"
+              Background="{StaticResource Brush.Surface}"
+              BorderBrush="{StaticResource Brush.Border}"
+              BorderThickness="1,0,0,0">
+        <Grid RowDefinitions="Auto,Auto,*,Auto,*">
+
+          <TextBlock Grid.Row="0"
+                     Text="References"
+                     FontSize="15" FontWeight="SemiBold"
+                     Foreground="{StaticResource Brush.TextPrimary}"
+                     Margin="16,16,16,8"/>
+
+          <TextBlock Grid.Row="1"
+                     Text="LINKED FROM THIS NOTE"
+                     FontSize="10" LetterSpacing="1"
+                     Foreground="{StaticResource Brush.TextSecondary}"
+                     Margin="16,0,16,8"/>
+
+          <!-- Linked notes -->
+          <ScrollViewer Grid.Row="2" MaxHeight="200">
+            <ItemsControl ItemsSource="{Binding ReferencedNotes}" Margin="8,0">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Margin="0,0,0,4" CornerRadius="6" Padding="10,8"
+                          Background="{StaticResource Brush.SurfaceAlt}"
+                          Cursor="Hand">
+                    <DockPanel>
+                      <Button DockPanel.Dock="Right"
+                              Command="{Binding $parent[UserControl].((vm:NoteEditorViewModel)DataContext).RemoveReferenceCommand}"
+                              CommandParameter="{Binding}"
+                              Background="Transparent" BorderThickness="0"
+                              Padding="4" Cursor="Hand">
+                        <TextBlock Text="Ã—" FontSize="12"
+                                   Foreground="{StaticResource Brush.TextSecondary}"/>
+                      </Button>
+                      <TextBlock Text="{Binding Title}"
+                                 FontSize="13"
+                                 Foreground="{StaticResource Brush.TextPrimary}"
+                                 TextTrimming="CharacterEllipsis"
+                                 VerticalAlignment="Center"
+                                 Tapped="ReferencedNote_Tapped"/>
+                    </DockPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+
+          <Separator Grid.Row="3" Background="{StaticResource Brush.Border}" Margin="16,8"/>
+
+          <!-- Add reference -->
+          <Grid Grid.Row="4" RowDefinitions="Auto,*">
+            <StackPanel Grid.Row="0" Spacing="6" Margin="8,0,8,8">
+              <TextBlock Text="ADD REFERENCE"
+                         FontSize="10" LetterSpacing="1"
+                         Foreground="{StaticResource Brush.TextSecondary}"/>
+              <TextBox Text="{Binding ReferenceSearch, Mode=TwoWay}"
+                       Watermark="Search notes..."
+                       Padding="8,6" CornerRadius="6"/>
+            </StackPanel>
+            <ScrollViewer Grid.Row="1">
+              <ItemsControl ItemsSource="{Binding AllOtherNotes}" Margin="8,0">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border Margin="0,0,0,4" CornerRadius="6" Padding="10,8"
+                            Background="{StaticResource Brush.Background}"
+                            Cursor="Hand">
+                      <DockPanel>
+                        <Button DockPanel.Dock="Right"
+                                Command="{Binding $parent[UserControl].((vm:NoteEditorViewModel)DataContext).AddReferenceCommand}"
+                                CommandParameter="{Binding}"
+                                Background="Transparent" BorderThickness="0"
+                                Padding="4" Cursor="Hand">
+                          <TextBlock Text="+" FontSize="14"
+                                     Foreground="{StaticResource Brush.Accent}"/>
+                        </Button>
+                        <TextBlock Text="{Binding Title}"
+                                   FontSize="12"
+                                   Foreground="{StaticResource Brush.TextSecondary}"
+                                   TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center"/>
+                      </DockPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Grid>
+
+        </Grid>
+      </Border>
+    </Grid>
+
+    <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+         ROW 4 â€” Status bar
+         â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+    <Border Grid.Row="4"
+            Background="{StaticResource Brush.Surface}"
+            BorderBrush="{StaticResource Brush.Border}"
+            BorderThickness="0,1,0,0"
+            Padding="20,6">
+      <StackPanel Orientation="Horizontal" Spacing="20">
+        <TextBlock Foreground="{StaticResource Brush.TextSecondary}" FontSize="12">
+          <Run Text="{Binding WordCount}"/>
+          <Run Text=" words"/>
+        </TextBlock>
+        <TextBlock Foreground="{StaticResource Brush.TextSecondary}" FontSize="12">
+          <Run Text="{Binding CharacterCount}"/>
+          <Run Text=" chars"/>
+        </TextBlock>
+        <TextBlock Foreground="{StaticResource Brush.TextSecondary}" FontSize="12">
+          <Run Text="{Binding LineCount}"/>
+          <Run Text=" lines"/>
+        </TextBlock>
+        <TextBlock Text="{Binding StatusMessage}"
+                   Foreground="{StaticResource Brush.Accent}"
+                   FontSize="12" VerticalAlignment="Center"/>
+      </StackPanel>
+    </Border>
+
+  </Grid>
+</UserControl>
+
+
+
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Views\NoteEditorView.axaml.cs ---
+----------------------------------------
+using System;
+using System.Linq;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
+using NoteToolAvalonia.Models;
+using NoteToolAvalonia.ViewModels;
+using MarkdownUIComponent;
+
+namespace NoteToolAvalonia.Views;
+
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  NOTE EDITOR VIEW
+//  Single-pane editor backed by MarkdownUIComponent's TextBox.
+//  Toolbar / line numbers / status bar / keybinds preserved.
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+public partial class NoteEditorView : UserControl
+{
+    private TextBox?  _editor;        // inner TextBox of CustomMarkdownEditor
+    private TextBlock? _lineNumbers;
+    private bool      _updatingFromVm;
+
+    private Button? _boldBtn, _italicBtn, _strikeBtn, _codeBtn;
+    private Button? _h1Btn, _h2Btn, _h3Btn;
+    private Button? _bulletBtn, _numberedBtn, _checklistBtn, _quoteBtn;
+    private Button? _tableBtn, _hrBtn;
+
+    public NoteEditorView()
+    {
+        InitializeComponent();
+        Loaded += OnLoaded;
+    }
+
+    private void OnLoaded(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _editor      = FindInnerTextBox();
+        _lineNumbers = this.FindControl<TextBlock>("LineNumbersPanel");
+
+        if (_editor == null) return;
+
+        _editor.TextChanged += (_, _) =>
+        {
+            if (_updatingFromVm) return;
+            if (DataContext is NoteEditorViewModel v)
+                // WYSIWYG: read Markdown (with markers) from the control, not
+                // the raw TextBox text (which has markers stripped).
+                v.NoteContent = _mdEditor?.Markdown ?? _editor.Text ?? string.Empty;
+            UpdateLineNumbers();
+        };
+
+        AddHandler(KeyDownEvent, OnKeyDown, handledEventsToo: true);
+        FindToolbarButtons();
+        WireToolbarButtons();
+
+        SyncContentToEditor();
+
+        if (DataContext is NoteEditorViewModel vm)
+        {
+            vm.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(NoteEditorViewModel.NoteContent) && !_updatingFromVm)
+                    SyncContentToEditor();
+            };
+        }
+    }
+
+    private CustomMarkdownEditor? _mdEditor;
+
+    // CustomMarkdownEditor â†’ Grid â†’ col 0 = EditorInput TextBox
+    private TextBox? FindInnerTextBox()
+    {
+        var host = this.FindControl<MarkdownEditorOnly>("MarkdownEditorHost");
+        if (host is null) return null;
+        // The named CustomMarkdownEditor inside the host (set in MarkdownEditorOnly.axaml).
+        _mdEditor = host.GetVisualDescendants()
+                        .OfType<CustomMarkdownEditor>()
+                        .FirstOrDefault();
+        if (_mdEditor is null) return null;
+        return _mdEditor.GetVisualDescendants()
+                        .OfType<TextBox>()
+                        .FirstOrDefault(t => t.Name == "EditorInput");
+    }
+
+    private void SyncContentToEditor()
+    {
+        if (_editor == null) return;
+        if (DataContext is not NoteEditorViewModel vm) return;
+
+        _updatingFromVm = true;
+        // WYSIWYG: push Markdown to the control; the control re-renders display + overlay.
+        if (_mdEditor is not null) _mdEditor.Markdown = vm.NoteContent ?? string.Empty;
+        else _editor.Text = vm.NoteContent ?? string.Empty;
+        _updatingFromVm = false;
+
+        UpdateLineNumbers();
+
+        Dispatcher.UIThread.Post(() => _editor.Focus(), DispatcherPriority.Input);
+    }
+
+    // â”€â”€ Keyboard shortcuts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    private void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (DataContext is not NoteEditorViewModel vm) return;
+
+        if (e.KeyModifiers == KeyModifiers.Control)
+        {
+            switch (e.Key)
+            {
+                case Key.S: vm.SaveCommand.Execute(null);                 e.Handled = true; break;
+                case Key.B: WrapSelection("**", "**");                   e.Handled = true; break;
+                case Key.I: WrapSelection("*",  "*");                    e.Handled = true; break;
+                case Key.H:
+                case Key.F: vm.ShowFindReplacePanelCommand.Execute(null); e.Handled = true; break;
+            }
+        }
+        else if (e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift))
+        {
+            switch (e.Key)
+            {
+                case Key.W: vm.ToggleWordWrapCommand.Execute(null);    e.Handled = true; break;
+                case Key.L: vm.ToggleLineNumbersCommand.Execute(null); e.Handled = true; break;
+            }
+        }
+    }
+
+    // â”€â”€ Toolbar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    private void FindToolbarButtons()
+    {
+        _boldBtn      = this.FindControl<Button>("BoldButton");
+        _italicBtn    = this.FindControl<Button>("ItalicButton");
+        _strikeBtn    = this.FindControl<Button>("StrikeButton");
+        _codeBtn      = this.FindControl<Button>("CodeButton");
+        _h1Btn        = this.FindControl<Button>("H1Button");
+        _h2Btn        = this.FindControl<Button>("H2Button");
+        _h3Btn        = this.FindControl<Button>("H3Button");
+        _bulletBtn    = this.FindControl<Button>("BulletButton");
+        _numberedBtn  = this.FindControl<Button>("NumberedButton");
+        _checklistBtn = this.FindControl<Button>("ChecklistButton");
+        _quoteBtn     = this.FindControl<Button>("QuoteButton");
+        _tableBtn     = this.FindControl<Button>("TableButton");
+        _hrBtn        = this.FindControl<Button>("HRButton");
+    }
+
+    private void WireToolbarButtons()
+    {
+        _boldBtn?.Click      += (_, _) => WrapSelection("**", "**");
+        _italicBtn?.Click    += (_, _) => WrapSelection("*",  "*");
+        _strikeBtn?.Click    += (_, _) => WrapSelection("~~", "~~");
+        _codeBtn?.Click      += (_, _) => WrapSelection("`",  "`");
+        _h1Btn?.Click        += (_, _) => PrependLine("# ");
+        _h2Btn?.Click        += (_, _) => PrependLine("## ");
+        _h3Btn?.Click        += (_, _) => PrependLine("### ");
+        _bulletBtn?.Click    += (_, _) => PrependLine("- ");
+        _numberedBtn?.Click  += (_, _) => PrependLine("1. ");
+        _checklistBtn?.Click += (_, _) => PrependLine("- [ ] ");
+        _quoteBtn?.Click     += (_, _) => PrependLine("> ");
+        _tableBtn?.Click     += (_, _) => InsertAtCursor("\n| Header 1 | Header 2 |\n| --- | --- |\n| Cell | Cell |\n");
+        _hrBtn?.Click        += (_, _) => InsertAtCursor("\n---\n");
+        _editor?.Focus();
+    }
+
+    // â”€â”€ Text helpers (operate on the inner TextBox) â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    private int GetCaret()
+    {
+        if (_editor is null) return 0;
+        return _editor.CaretIndex;
+    }
+
+    private void SetCaret(int pos)
+    {
+        if (_editor is null) return;
+        _editor.CaretIndex = Math.Clamp(pos, 0, (_editor.Text ?? string.Empty).Length);
+    }
+
+    // ponytail: edit on display text, then push to _mdEditor.Markdown so the
+    // WYSIWYG overlay re-renders. The shipped MarkdownUIComponent.dll only
+    // exposes the Markdown property â€” the wrap/prepend/insert helpers are not
+    // public. Re-introduce them with displayâ†’raw mapping once the control grows
+    // a public API; until then, raw markdown markers in user selection are
+    // not preserved across a toolbar wrap (the overlay will show plain text).
+    private void PushMarkdown(string newText)
+    {
+        if (_mdEditor is not null)
+            _mdEditor.Markdown = newText;
+        else if (_editor is not null)
+            _editor.Text = newText;
+    }
+
+    private void WrapSelection(string open, string close)
+    {
+        if (_editor == null) return;
+        var text = _editor.Text ?? string.Empty;
+        var caret = _editor.CaretIndex;
+        var selStart = _editor.SelectionStart;
+        var selEnd   = _editor.SelectionEnd;
+
+        if (selStart < selEnd)
+        {
+            var selected = text.Substring(selStart, selEnd - selStart);
+            var replaced = open + selected + close;
+            PushMarkdown(text.Substring(0, selStart) + replaced + text.Substring(selEnd));
+            SetCaret(selStart + replaced.Length);
+        }
+        else
+        {
+            var inserted = open + close;
+            PushMarkdown(text.Substring(0, caret) + inserted + text.Substring(caret));
+            SetCaret(caret + open.Length);
+        }
+        _editor.Focus();
+    }
+
+    private void PrependLine(string prefix)
+    {
+        if (_editor == null) return;
+        var text = _editor.Text ?? string.Empty;
+        var caret = _editor.CaretIndex;
+        // Find start of current line
+        var lineStart = text.LastIndexOf('\n', Math.Max(0, caret - 1)) + 1;
+        PushMarkdown(text.Substring(0, lineStart) + prefix + text.Substring(lineStart));
+        SetCaret(lineStart + prefix.Length);
+        _editor.Focus();
+    }
+
+    private void InsertAtCursor(string text)
+    {
+        if (_editor == null) return;
+        var cur = _editor.Text ?? string.Empty;
+        var caret = _editor.CaretIndex;
+        PushMarkdown(cur.Substring(0, caret) + text + cur.Substring(caret));
+        SetCaret(caret + text.Length);
+        _editor.Focus();
+    }
+
+    private void UpdateLineNumbers()
+    {
+        if (_lineNumbers == null || _editor == null) return;
+        var text = _editor.Text ?? string.Empty;
+        var lineCount = text.Length == 0 ? 1 : text.Split('\n').Length;
+        _lineNumbers.Text = string.Join(Environment.NewLine, Enumerable.Range(1, lineCount));
+    }
+
+    // â”€â”€ References panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    private void ReferencedNote_Tapped(object? sender, TappedEventArgs e)
+    {
+        if (sender is TextBlock tb && tb.DataContext is NoteCard card &&
+            DataContext is NoteEditorViewModel vm)
+            vm.OpenReferencedNoteCommand.Execute(card);
+    }
+}
+
+
+
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Views\SettingsView.axaml ---
+----------------------------------------
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NoteToolAvalonia.ViewModels"
+             x:Class="NoteToolAvalonia.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+
+  <ScrollViewer>
+    <StackPanel Spacing="0">
+
+      <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+           HEADER
+           â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+      <Border Background="{StaticResource Brush.Surface}"
+              Padding="40,48,40,40"
+              BorderBrush="{StaticResource Brush.Border}"
+              BorderThickness="0,0,0,1">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Settings"
+                     FontSize="32" FontWeight="Bold"
+                     Foreground="{StaticResource Brush.TextPrimary}"/>
+          <TextBlock Text="Customise your Notey experience"
+                     FontSize="14"
+                     Foreground="{StaticResource Brush.TextSecondary}"/>
+        </StackPanel>
+      </Border>
+
+      <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+           SECTIONS
+           â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+      <StackPanel Margin="40,40,40,40" Spacing="48">
+
+        <!-- â”€â”€ Appearance â”€â”€ -->
+        <StackPanel Spacing="20">
+          <StackPanel Spacing="6">
+            <TextBlock Text="Appearance"
+                       FontSize="16" FontWeight="SemiBold"
+                       Foreground="{StaticResource Brush.TextPrimary}"/>
+            <TextBlock Text="Control how Notey looks"
+                       FontSize="12"
+                       Foreground="{StaticResource Brush.TextSecondary}"/>
+          </StackPanel>
+
+          <Border Background="{StaticResource Brush.SurfaceAlt}"
+                  CornerRadius="12" Padding="24"
+                  BorderBrush="{StaticResource Brush.Border}"
+                  BorderThickness="1">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Theme"
+                         FontSize="13" FontWeight="SemiBold"
+                         Foreground="{StaticResource Brush.TextPrimary}"/>
+              <ComboBox ItemsSource="{Binding Themes}"
+                        SelectedItem="{Binding SelectedTheme, Mode=TwoWay}"
+                        Width="200"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- â”€â”€ Behaviour â”€â”€ -->
+        <StackPanel Spacing="20">
+          <StackPanel Spacing="6">
+            <TextBlock Text="Behaviour"
+                       FontSize="16" FontWeight="SemiBold"
+                       Foreground="{StaticResource Brush.TextPrimary}"/>
+            <TextBlock Text="Adjust how the app saves and handles your notes"
+                       FontSize="12"
+                       Foreground="{StaticResource Brush.TextSecondary}"/>
+          </StackPanel>
+
+          <!-- Auto-save card -->
+          <Border Background="{StaticResource Brush.SurfaceAlt}"
+                  CornerRadius="12" Padding="24"
+                  BorderBrush="{StaticResource Brush.Border}"
+                  BorderThickness="1">
+            <StackPanel Spacing="16">
+              <DockPanel>
+                <StackPanel DockPanel.Dock="Left" Spacing="4">
+                  <TextBlock Text="Auto-save"
+                             FontSize="13" FontWeight="SemiBold"
+                             Foreground="{StaticResource Brush.TextPrimary}"/>
+                  <TextBlock Text="Automatically save notes as you type"
+                             FontSize="11"
+                             Foreground="{StaticResource Brush.TextSecondary}"/>
+                </StackPanel>
+                <ToggleSwitch DockPanel.Dock="Right"
+                              IsChecked="{Binding AutoSave, Mode=TwoWay}"
+                              OnContent="" OffContent=""
+                              HorizontalAlignment="Right"/>
+              </DockPanel>
+
+              <Border Height="1" Background="{StaticResource Brush.Border}"/>
+
+              <DockPanel IsEnabled="{Binding AutoSave}">
+                <TextBlock DockPanel.Dock="Left"
+                           Text="Interval:"
+                           VerticalAlignment="Center"
+                           Foreground="{StaticResource Brush.TextPrimary}"
+                           Width="80"/>
+                <StackPanel DockPanel.Dock="Right"
+                            Orientation="Horizontal" Spacing="8">
+                  <NumericUpDown Minimum="1" Maximum="60"
+                                 Value="{Binding AutoSaveInterval, Mode=TwoWay}"
+                                 Width="120"/>
+                  <TextBlock Text="minutes"
+                             VerticalAlignment="Center"
+                             Foreground="{StaticResource Brush.TextSecondary}"/>
+                </StackPanel>
+              </DockPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- Confirm before delete card -->
+          <Border Background="{StaticResource Brush.SurfaceAlt}"
+                  CornerRadius="12" Padding="24"
+                  BorderBrush="{StaticResource Brush.Border}"
+                  BorderThickness="1">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Left" Spacing="4">
+                <TextBlock Text="Confirm Before Delete"
+                           FontSize="13" FontWeight="SemiBold"
+                           Foreground="{StaticResource Brush.TextPrimary}"/>
+                <TextBlock Text="Ask for confirmation before permanently deleting notes"
+                           FontSize="11"
+                           Foreground="{StaticResource Brush.TextSecondary}"/>
+              </StackPanel>
+              <ToggleSwitch DockPanel.Dock="Right"
+                            IsChecked="{Binding ConfirmBeforeDelete, Mode=TwoWay}"
+                            OnContent="" OffContent=""
+                            HorizontalAlignment="Right"/>
+            </DockPanel>
+          </Border>
+
+          <!-- Show completed card -->
+          <Border Background="{StaticResource Brush.SurfaceAlt}"
+                  CornerRadius="12" Padding="24"
+                  BorderBrush="{StaticResource Brush.Border}"
+                  BorderThickness="1">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Left" Spacing="4">
+                <TextBlock Text="Show Completed Notes"
+                           FontSize="13" FontWeight="SemiBold"
+                           Foreground="{StaticResource Brush.TextPrimary}"/>
+                <TextBlock Text="Include completed notes in your library"
+                           FontSize="11"
+                           Foreground="{StaticResource Brush.TextSecondary}"/>
+              </StackPanel>
+              <ToggleSwitch DockPanel.Dock="Right"
+                            IsChecked="{Binding ShowCompletedNotes, Mode=TwoWay}"
+                            OnContent="" OffContent=""
+                            HorizontalAlignment="Right"/>
+            </DockPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- â”€â”€ Data & Storage â”€â”€ -->
+        <StackPanel Spacing="20">
+          <StackPanel Spacing="6">
+            <TextBlock Text="Data &amp; Storage"
+                       FontSize="16" FontWeight="SemiBold"
+                       Foreground="{StaticResource Brush.TextPrimary}"/>
+            <TextBlock Text="Where your notes live on disk"
+                       FontSize="12"
+                       Foreground="{StaticResource Brush.TextSecondary}"/>
+          </StackPanel>
+
+          <Border Background="{StaticResource Brush.SurfaceAlt}"
+                  CornerRadius="12" Padding="24"
+                  BorderBrush="{StaticResource Brush.Border}"
+                  BorderThickness="1">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Notes Folder"
+                         FontSize="13" FontWeight="SemiBold"
+                         Foreground="{StaticResource Brush.TextPrimary}"/>
+              <TextBlock Text="This is where your .md files are stored. Each note is a portable markdown file you can open in any editor."
+                         FontSize="11"
+                         Foreground="{StaticResource Brush.TextSecondary}"
+                         TextWrapping="Wrap"/>
+              <TextBox Text="{Binding DataFolderPath}"
+                       IsReadOnly="True"
+                       Padding="12,10"
+                       CornerRadius="8"
+                       Background="{StaticResource Brush.Background}"
+                       BorderBrush="{StaticResource Brush.Border}"
+                       Foreground="{StaticResource Brush.TextSecondary}"
+                       FontFamily="Cascadia Code, Consolas, monospace"
+                       FontSize="12"/>
+              <Button Content="Browse Folder"
+                      Command="{Binding BrowseFolderCommand}"
+                      Classes="ghost"
+                      Padding="12,10"
+                      HorizontalAlignment="Left"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- â”€â”€ Actions â”€â”€ -->
+        <StackPanel Spacing="16" Margin="0,16,0,0">
+          <Border Height="1" Background="{StaticResource Brush.Border}"/>
+
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <Button Classes="accent"
+                    Command="{Binding SaveSettingsCommand}"
+                    Padding="24,12"
+                    FontSize="13" FontWeight="SemiBold">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="âœ“"/>
+                <TextBlock Text="Save Changes"/>
+              </StackPanel>
+            </Button>
+
+            <Button Classes="ghost"
+                    Command="{Binding ResetDefaultsCommand}"
+                    Padding="24,12"
+                    FontSize="13" FontWeight="SemiBold">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="â†º"/>
+                <TextBlock Text="Reset to Defaults"/>
+              </StackPanel>
+            </Button>
+
+            <Button Classes="ghost"
+                    Command="{Binding GoBackCommand}"
+                    Padding="24,12"
+                    FontSize="13" FontWeight="SemiBold">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="â†"/>
+                <TextBlock Text="Back"/>
+              </StackPanel>
+            </Button>
+          </StackPanel>
+
+          <TextBlock Text="{Binding StatusMessage}"
+                     Foreground="{StaticResource Brush.Accent}"
+                     FontWeight="SemiBold"
+                     FontSize="12"
+                     Margin="0,4,0,0"/>
+        </StackPanel>
+
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
+
+
+
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Views\SettingsView.axaml.cs ---
+----------------------------------------
+using Avalonia.Controls;
+
+namespace NoteToolAvalonia.Views;
+
+public partial class SettingsView : UserControl
+{
+    public SettingsView() { InitializeComponent(); }
+}
+
+
+
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Views\WelcomeView.axaml ---
+----------------------------------------
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NoteToolAvalonia.ViewModels"
+             xmlns:converters="using:NoteToolAvalonia.Converters"
+             x:Class="NoteToolAvalonia.Views.WelcomeView"
+             x:DataType="vm:WelcomeViewModel">
+
+  <Grid ColumnDefinitions="260,*">
+
+    <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+         LEFT â€” Filter panel
+         â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+    <Border Grid.Column="0"
+            Background="{StaticResource Brush.Surface}"
+            BorderBrush="{StaticResource Brush.Border}"
+            BorderThickness="0,0,1,0">
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="0" Margin="0,20,0,24">
+
+          <!-- New Note button -->
+          <Button Command="{Binding ShowCreateNoteCommand}"
+                  Classes="accent"
+                  Margin="14,0,14,20"
+                  HorizontalAlignment="Stretch">
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+              <TextBlock Text="+" FontSize="18" FontWeight="Bold" VerticalAlignment="Center"/>
+              <TextBlock Text="New Note" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
+
+          <!-- Stats -->
+          <Border Margin="14,0,14,20"
+                  Background="{StaticResource Brush.SurfaceAlt}"
+                  CornerRadius="8" Padding="12,10">
+            <Grid ColumnDefinitions="*,*,*">
+              <StackPanel Grid.Column="0" HorizontalAlignment="Center" Spacing="2">
+                <TextBlock Text="{Binding TotalNotes}"
+                           FontSize="18" FontWeight="Bold"
+                           Foreground="{StaticResource Brush.TextPrimary}"
+                           HorizontalAlignment="Center"/>
+                <TextBlock Text="Total" FontSize="10"
+                           Foreground="{StaticResource Brush.TextSecondary}"
+                           HorizontalAlignment="Center"/>
+              </StackPanel>
+              <StackPanel Grid.Column="1" HorizontalAlignment="Center" Spacing="2">
+                <TextBlock Text="{Binding CompletedNotes}"
+                           FontSize="18" FontWeight="Bold"
+                           Foreground="{StaticResource Brush.Accent}"
+                           HorizontalAlignment="Center"/>
+                <TextBlock Text="Done" FontSize="10"
+                           Foreground="{StaticResource Brush.TextSecondary}"
+                           HorizontalAlignment="Center"/>
+              </StackPanel>
+              <StackPanel Grid.Column="2" HorizontalAlignment="Center" Spacing="2">
+                <TextBlock Text="{Binding OverdueNotes}"
+                           FontSize="18" FontWeight="Bold"
+                           Foreground="#ff4757"
+                           HorizontalAlignment="Center"/>
+                <TextBlock Text="Overdue" FontSize="10"
+                           Foreground="{StaticResource Brush.TextSecondary}"
+                           HorizontalAlignment="Center"/>
+              </StackPanel>
+            </Grid>
+          </Border>
+
+          <Separator Background="{StaticResource Brush.Border}" Margin="14,0,14,18"/>
+
+          <!-- Search -->
+          <StackPanel Margin="14,0,14,16" Spacing="6">
+            <TextBlock Text="SEARCH" FontSize="10" LetterSpacing="1"
+                       Foreground="{StaticResource Brush.TextSecondary}"/>
+            <TextBox Text="{Binding SearchText, Mode=TwoWay}"
+                     Watermark="Search notes..."
+                     CornerRadius="6" Padding="10,8"/>
+          </StackPanel>
+
+          <!-- Category -->
+          <StackPanel Margin="14,0,14,16" Spacing="6">
+            <TextBlock Text="CATEGORY" FontSize="10" LetterSpacing="1"
+                       Foreground="{StaticResource Brush.TextSecondary}"/>
+            <ComboBox ItemsSource="{Binding Categories}"
+                      SelectedItem="{Binding SelectedCategory, Mode=TwoWay}"
+                      HorizontalAlignment="Stretch" CornerRadius="6"/>
+          </StackPanel>
+
+          <!-- Deadline -->
+          <StackPanel Margin="14,0,14,16" Spacing="6">
+            <TextBlock Text="DEADLINE" FontSize="10" LetterSpacing="1"
+                       Foreground="{StaticResource Brush.TextSecondary}"/>
+            <ComboBox ItemsSource="{Binding DeadlineFilters}"
+                      SelectedItem="{Binding SelectedDeadlineFilter, Mode=TwoWay}"
+                      HorizontalAlignment="Stretch" CornerRadius="6"/>
+          </StackPanel>
+
+          <!-- Sort -->
+          <StackPanel Margin="14,0,14,16" Spacing="6">
+            <TextBlock Text="SORT BY" FontSize="10" LetterSpacing="1"
+                       Foreground="{StaticResource Brush.TextSecondary}"/>
+            <ComboBox ItemsSource="{Binding SortOptions}"
+                      SelectedItem="{Binding SelectedSort, Mode=TwoWay}"
+                      HorizontalAlignment="Stretch" CornerRadius="6"/>
+          </StackPanel>
+
+          <Separator Background="{StaticResource Brush.Border}" Margin="14,0,14,16"/>
+
+          <!-- Show completed -->
+          <Grid ColumnDefinitions="*,Auto" Margin="14,0,14,0">
+            <TextBlock Grid.Column="0" Text="Show Completed"
+                       FontSize="13" Foreground="{StaticResource Brush.TextPrimary}"
+                       VerticalAlignment="Center"/>
+            <ToggleSwitch Grid.Column="1"
+                          IsChecked="{Binding ShowCompleted, Mode=TwoWay}"
+                          OnContent="" OffContent=""/>
+          </Grid>
+
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+         RIGHT â€” Note grid
+         â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+    <ScrollViewer Grid.Column="1" Padding="24">
+      <StackPanel Spacing="0">
+
+        <!-- Empty state -->
+        <Border IsVisible="{Binding !FilteredNotes.Count}"
+                HorizontalAlignment="Center"
+                Margin="0,80,0,0">
+          <StackPanel Spacing="12" HorizontalAlignment="Center">
+            <TextBlock Text="ðŸ“" FontSize="48" HorizontalAlignment="Center"/>
+            <TextBlock Text="No notes found"
+                       FontSize="18" FontWeight="SemiBold"
+                       Foreground="{StaticResource Brush.TextPrimary}"
+                       HorizontalAlignment="Center"/>
+            <TextBlock Text="Hit New Note to get started, or adjust your filters"
+                       FontSize="13"
+                       Foreground="{StaticResource Brush.TextSecondary}"
+                       HorizontalAlignment="Center"/>
+          </StackPanel>
+        </Border>
+
+        <!-- Cards -->
+        <ItemsControl ItemsSource="{Binding FilteredNotes}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel/>
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border Width="260" Height="180"
+                      Margin="0,0,16,16"
+                      Background="{StaticResource Brush.Surface}"
+                      BorderBrush="{StaticResource Brush.Border}"
+                      BorderThickness="1"
+                      CornerRadius="12"
+                      Cursor="Hand"
+                      Tapped="NoteCard_Tapped">
+                <Border.Styles>
+                  <Style Selector="Border:pointerover">
+                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
+                    <Setter Property="Background"   Value="{StaticResource Brush.SurfaceAlt}"/>
+                  </Style>
+                  <Style Selector="Border">
+                    <Setter Property="Transitions">
+                      <Transitions>
+                        <BrushTransition Property="BorderBrush" Duration="0:0:0.15"/>
+                        <BrushTransition Property="Background"  Duration="0:0:0.15"/>
+                      </Transitions>
+                    </Setter>
+                  </Style>
+                </Border.Styles>
+
+                <Grid RowDefinitions="Auto,*,Auto" Margin="16,14,16,14">
+
+                  <!-- Category badge + delete -->
+                  <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                    <Border Grid.Column="0"
+                            Background="{StaticResource Brush.Accent}"
+                            CornerRadius="4" Padding="6,2"
+                            HorizontalAlignment="Left"
+                            IsVisible="{Binding Category,
+                              Converter={x:Static converters:StringNotEmptyConverter.Instance}}">
+                      <TextBlock Text="{Binding Category}"
+                                 FontSize="10" FontWeight="SemiBold"
+                                 Foreground="White"/>
+                    </Border>
+                    <Button Grid.Column="1"
+                            Command="{Binding $parent[ItemsControl].((vm:WelcomeViewModel)DataContext).DeleteNoteCommand}"
+                            CommandParameter="{Binding}"
+                            Background="Transparent" BorderThickness="0"
+                            Padding="4" Cursor="Hand" ToolTip.Tip="Delete note">
+                      <TextBlock Text="ðŸ—‘" FontSize="12"
+                                 Foreground="{StaticResource Brush.TextSecondary}"/>
+                    </Button>
+                  </Grid>
+
+                  <!-- Title + tags -->
+                  <StackPanel Grid.Row="1" Spacing="6" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Title}"
+                               FontSize="15" FontWeight="SemiBold"
+                               Foreground="{StaticResource Brush.TextPrimary}"
+                               TextWrapping="Wrap" MaxLines="2"
+                               TextTrimming="CharacterEllipsis"/>
+                    <ItemsControl ItemsSource="{Binding Tags}">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Border Background="{StaticResource Brush.SurfaceAlt}"
+                                  CornerRadius="4" Padding="5,2" Margin="0,0,4,4">
+                            <TextBlock Text="{Binding}" FontSize="10"
+                                       Foreground="{StaticResource Brush.TextSecondary}"/>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+
+                  <!-- Deadline + date -->
+                  <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+                    <Border Grid.Column="0"
+                            IsVisible="{Binding Deadline,
+                              Converter={x:Static converters:DeadlineVisibilityConverter.Instance}}"
+                            Background="#33ff4757"
+                            CornerRadius="4" Padding="5,2"
+                            HorizontalAlignment="Left">
+                      <TextBlock Text="{Binding Deadline,
+                                   Converter={x:Static converters:DeadlineTextConverter.Instance}}"
+                                 FontSize="10" Foreground="#ff4757"/>
+                    </Border>
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding LastModified, StringFormat='MMM dd'}"
+                               FontSize="10"
+                               Foreground="{StaticResource Brush.TextSecondary}"
+                               VerticalAlignment="Bottom"/>
+                  </Grid>
+
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+         NOTE CREATOR OVERLAY
+         â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+    <Border Grid.Column="0" Grid.ColumnSpan="2"
+            IsVisible="{Binding IsCreatingNote}"
+            Background="#CC000000">
+      <Border Width="480"
+              Background="{StaticResource Brush.Surface}"
+              CornerRadius="16" Padding="40,36"
+              HorizontalAlignment="Center" VerticalAlignment="Center"
+              BorderBrush="{StaticResource Brush.Border}" BorderThickness="1">
+        <StackPanel Spacing="28">
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="New Note" FontSize="24" FontWeight="Bold"
+                       Foreground="{StaticResource Brush.TextPrimary}"/>
+            <TextBlock FontSize="13" Foreground="{StaticResource Brush.TextSecondary}">
+              <Run Text="Step "/>
+              <Run Text="{Binding CreatorStep}"/>
+              <Run Text=" of 4"/>
+            </TextBlock>
+          </StackPanel>
+
+          <!-- Step 1: Title -->
+          <StackPanel Spacing="8"
+                      IsVisible="{Binding CreatorStep,
+                        Converter={x:Static converters:IntEqualsConverter.Instance},
+                        ConverterParameter=1}">
+            <TextBlock Text="What's your note about?"
+                       FontSize="15" FontWeight="SemiBold"
+                       Foreground="{StaticResource Brush.TextPrimary}"/>
+            <TextBox Name="WizardStep1Box"
+                     Text="{Binding NewNoteTitle, Mode=TwoWay}"
+                     Watermark="Note title..." FontSize="15"
+                     Padding="14,12" CornerRadius="8"/>
+          </StackPanel>
+
+          <!-- Step 2: Category -->
+          <StackPanel Spacing="8"
+                      IsVisible="{Binding CreatorStep,
+                        Converter={x:Static converters:IntEqualsConverter.Instance},
+                        ConverterParameter=2}">
+            <TextBlock Text="Which category does it belong to?"
+                       FontSize="15" FontWeight="SemiBold"
+                       Foreground="{StaticResource Brush.TextPrimary}"/>
+            <TextBlock Text="e.g. Work, Personal, Research..." FontSize="12"
+                       Foreground="{StaticResource Brush.TextSecondary}"/>
+            <TextBox Name="WizardStep2Box"
+                     Text="{Binding NewNoteCategory, Mode=TwoWay}"
+                     Watermark="Category (optional)..."
+                     Padding="14,12" CornerRadius="8"/>
+          </StackPanel>
+
+          <!-- Step 3: Tags -->
+          <StackPanel Spacing="8"
+                      IsVisible="{Binding CreatorStep,
+                        Converter={x:Static converters:IntEqualsConverter.Instance},
+                        ConverterParameter=3}">
+            <TextBlock Text="Add some tags"
+                       FontSize="15" FontWeight="SemiBold"
+                       Foreground="{StaticResource Brush.TextPrimary}"/>
+            <TextBlock Text="Comma-separated â€” e.g. design, ux, prototype" FontSize="12"
+                       Foreground="{StaticResource Brush.TextSecondary}"/>
+            <TextBox Name="WizardStep3Box"
+                     Text="{Binding NewNoteTags, Mode=TwoWay}"
+                     Watermark="Tags (optional)..."
+                     Padding="14,12" CornerRadius="8"/>
+          </StackPanel>
+
+          <!-- Step 4: Deadline -->
+          <StackPanel Spacing="8"
+                      IsVisible="{Binding CreatorStep,
+                        Converter={x:Static converters:IntEqualsConverter.Instance},
+                        ConverterParameter=4}">
+            <TextBlock Text="Set a deadline?"
+                       FontSize="15" FontWeight="SemiBold"
+                       Foreground="{StaticResource Brush.TextPrimary}"/>
+            <TextBlock Text="Enter a date like 2026-07-15, or leave blank to skip" FontSize="12"
+                       Foreground="{StaticResource Brush.TextSecondary}"/>
+            <TextBox Name="WizardStep4Box"
+                     Text="{Binding NewNoteDeadline, Mode=TwoWay}"
+                     Watermark="YYYY-MM-DD (optional)..."
+                     Padding="14,12" CornerRadius="8"/>
+          </StackPanel>
+
+          <!-- Nav buttons -->
+          <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+            <Button Grid.Column="0" Command="{Binding CancelCreateNoteCommand}"
+                    Classes="ghost" Content="Cancel" Padding="16,10"/>
+            <Button Grid.Column="2" Command="{Binding CreatorBackCommand}"
+                    Classes="ghost" Content="â† Back" Padding="16,10"
+                    IsVisible="{Binding CreatorStep,
+                      Converter={x:Static converters:IntGreaterThanConverter.Instance},
+                      ConverterParameter=1}"/>
+            <Button Grid.Column="3" Command="{Binding CreatorNextCommand}"
+                    Classes="accent" Content="Next â†’" Padding="16,10" Margin="8,0,0,0"
+                    IsVisible="{Binding CreatorStep,
+                      Converter={x:Static converters:IntLessThanConverter.Instance},
+                      ConverterParameter=4}"/>
+            <Button Grid.Column="3" Command="{Binding CreateNoteCommand}"
+                    Classes="accent" Content="Create Note" Padding="16,10" Margin="8,0,0,0"
+                    IsVisible="{Binding CreatorStep,
+                      Converter={x:Static converters:IntEqualsConverter.Instance},
+                      ConverterParameter=4}"/>
+          </Grid>
+
+        </StackPanel>
+      </Border>
+    </Border>
+
+  </Grid>
+</UserControl>
+
+
+
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Views\WelcomeView.axaml.cs ---
+----------------------------------------
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Threading;
+using NoteToolAvalonia.Models;
+using NoteToolAvalonia.ViewModels;
+
+namespace NoteToolAvalonia.Views;
+
+public partial class WelcomeView : UserControl
+{
+    public WelcomeView()
+    {
+        InitializeComponent();
+        AddHandler(KeyDownEvent, OnKeyDown, handledEventsToo: true);
+    }
+
+    private void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        if (DataContext is not WelcomeViewModel vm) return;
+        if (!vm.IsCreatingNote) return;
+
+        if (vm.CreatorStep < 4)
+            vm.CreatorNextCommand.Execute(null);
+        else
+            vm.CreateNoteCommand.Execute(null);
+
+        e.Handled = true;
+
+        // Focus the TextBox for whichever step we just moved to.
+        // CreatorStep is already incremented by CreatorNextCommand above.
+        var targetStep = vm.CreatorStep;
+        Dispatcher.UIThread.Post(() =>
+        {
+            var box = this.FindControl<TextBox>($"WizardStep{targetStep}Box");
+            box?.Focus();
+        }, DispatcherPriority.Input);
+    }
+
+    private void NoteCard_Tapped(object? sender, TappedEventArgs e)
+    {
+        if (sender is Border b && b.DataContext is NoteCard card &&
+            DataContext is WelcomeViewModel vm)
+        {
+            vm.OpenNoteCommand.Execute(card);
+        }
+    }
+}
+
+
+
+========================================
+FOLDER: Controls
+========================================
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Controls\MarkdownEditor.cs ---
+----------------------------------------
+using System;
+using System.Collections.Generic;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Documents;
+using Avalonia.Input;
+using Avalonia.Media;
+using Avalonia.Threading;
+using Markdig;
+using Markdig.Extensions.TaskLists;
+using Markdig.Syntax;
+using Markdig.Syntax.Inlines;
+using MdBlock    = Markdig.Syntax.Block;
+using MdInline   = Markdig.Syntax.Inlines.Inline;
+using MdLeaf     = Markdig.Syntax.LeafBlock;
+using MdContainerInline = Markdig.Syntax.Inlines.ContainerInline;
+
+namespace NoteToolAvalonia.Controls;
+
+// ponytail: True-WYSIWYG Markdown editor.
+//
+//  - Source of truth: a TextBox bound to the `Markdown` DP. The TextBox is
+//    always visible. There's no "display text with markers stripped" â€” the
+//    caret and selection live on the raw source, so wrap/prepend/insert never
+//    have to map displayâ†’raw.
+//
+//  - Live preview: a SelectableTextBlock whose Inlines are rebuilt from the
+//    markdig AST. The rebuild is debounced (~120ms) so typing stays smooth.
+//
+//  - Render styles: a small built-in style map (heading sizes, code font,
+//    blockquote bar, task-list checkboxes). Extend the map to add more.
+//
+//  - Pipeline: UseAdvancedExtensions so tables, task lists, autolinks, etc.
+//    Just works. Change the pipeline in ctor to add/remove extensions.
+public class MarkdownEditor : TemplatedControl
+{
+    public static readonly StyledProperty<string?> MarkdownProperty =
+        AvaloniaProperty.Register<MarkdownEditor, string?>(nameof(Markdown));
+
+    public static readonly StyledProperty<bool> ShowPreviewProperty =
+        AvaloniaProperty.Register<MarkdownEditor, bool>(nameof(ShowPreview), true);
+
+    public string? Markdown
+    {
+        get => GetValue(MarkdownProperty);
+        set => SetValue(MarkdownProperty, value);
+    }
+
+    public bool ShowPreview
+    {
+        get => GetValue(ShowPreviewProperty);
+        set => SetValue(ShowPreviewProperty, value);
+    }
+
+    private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
+        .UseAdvancedExtensions()
+        .Build();
+
+    private TextBox? _source;
+    private SelectableTextBlock? _preview;
+    private Grid?   _root;
+    private GridSplitter? _splitter;
+    private DispatcherTimer? _debounce;
+
+    private bool _suppressTextChanged;
+
+    public MarkdownEditor()
+    {
+        // The visual tree is built by the template (MarkdownEditorOnly.axaml).
+        // For designer / non-templated use, fall back to a programmatic layout.
+    }
+
+    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
+    {
+        base.OnApplyTemplate(e);
+
+        _root     = e.NameScope.Find<Grid>("PART_Root");
+        _source   = e.NameScope.Find<TextBox>("PART_Source");
+        _preview  = e.NameScope.Find<SelectableTextBlock>("PART_Preview");
+        _splitter = e.NameScope.Find<GridSplitter>("PART_Splitter");
+
+        if (_source is not null)
+        {
+            _source.TextChanged += OnSourceTextChanged;
+            _source.Text = Markdown ?? string.Empty;
+        }
+
+        ApplyShowPreview();
+        RenderPreview();
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == MarkdownProperty)
+        {
+            var incoming = change.NewValue as string ?? string.Empty;
+            if (_source is not null && _source.Text != incoming)
+            {
+                _suppressTextChanged = true;
+                _source.Text = incoming;
+                _suppressTextChanged = false;
+            }
+            QueueRender();
+        }
+        else if (change.Property == ShowPreviewProperty)
+        {
+            ApplyShowPreview();
+        }
+    }
+
+    private void OnSourceTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (_suppressTextChanged) return;
+        var text = _source?.Text ?? string.Empty;
+        SetCurrentValue(MarkdownProperty, text);
+        QueueRender();
+    }
+
+    private void QueueRender()
+    {
+        if (_debounce is null)
+        {
+            _debounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(120) };
+            _debounce.Tick += (_, _) => { _debounce!.Stop(); RenderPreview(); };
+        }
+        _debounce.Stop();
+        _debounce.Start();
+    }
+
+    private void ApplyShowPreview()
+    {
+        if (_preview is null || _splitter is null) return;
+        _preview.IsVisible = ShowPreview;
+        _splitter.IsVisible = ShowPreview;
+    }
+
+    private void RenderPreview()
+    {
+        if (_preview is null) return;
+        var text = Markdown ?? string.Empty;
+        var doc  = Markdig.Markdown.Parse(text, Pipeline);
+        var inlines = new List<Inline>();
+        foreach (var block in doc)
+            AppendBlock(block, inlines);
+        _preview.Inlines = inlines;
+    }
+
+    // â”€â”€ AST â†’ Inlines â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    private void AppendBlock(MdBlock block, IList<Inline> output)
+    {
+        switch (block)
+        {
+            case HeadingBlock h:
+            {
+                var run = MakeRun(BlockText(h), h.Level switch
+                {
+                    1 => 28.0, 2 => 22.0, 3 => 18.0, 4 => 16.0, _ => 14.0
+                });
+                run.FontWeight = FontWeight.Bold;
+                output.Add(run);
+                output.Add(MakeLineBreak());
+                break;
+            }
+            case ParagraphBlock p:
+            {
+                var p_inlines = new List<Inline>();
+                foreach (var il in p.Inline) AppendInline(il, p_inlines);
+                foreach (var x in p_inlines) output.Add(x);
+                output.Add(MakeLineBreak());
+                output.Add(MakeLineBreak());
+                break;
+            }
+            case QuoteBlock q:
+            {
+                var q_inlines = new List<Inline>();
+                foreach (var child in q) AppendBlock(child, q_inlines);
+                var border = new Border
+                {
+                    BorderBrush = new SolidColorBrush(Color.FromRgb(179, 0, 0)),
+                    BorderThickness = new Thickness(3, 0, 0, 0),
+                    Padding = new Thickness(8, 0, 0, 0),
+                    Child = new SelectableTextBlock { Inlines = q_inlines }
+                };
+                output.Add(new InlineUIContainer(border));
+                output.Add(MakeLineBreak());
+                break;
+            }
+            case CodeBlock cb:
+            {
+                var run = MakeRun(BlockText(cb), 13);
+                run.FontFamily = new FontFamily("Cascadia Mono, Consolas, monospace");
+                run.Background = new SolidColorBrush(Color.FromRgb(40, 40, 50));
+                output.Add(run);
+                output.Add(MakeLineBreak());
+                output.Add(MakeLineBreak());
+                break;
+            }
+            case ListBlock lb:
+            {
+                int n = 0;
+                bool ordered = lb.IsOrdered;
+                foreach (var item in lb)
+                {
+                    if (item is ListItemBlock li)
+                    {
+                        var prefix = ordered ? $"{++n}. " : "â€¢  ";
+                        var li_inlines = new List<Inline>();
+                        foreach (var child in li) AppendBlock(child, li_inlines);
+                        output.Add(MakeRun(prefix, 14));
+                        foreach (var x in li_inlines) output.Add(x);
+                    }
+                }
+                output.Add(MakeLineBreak());
+                break;
+            }
+            case ThematicBreakBlock:
+                output.Add(MakeRun("â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€", 12));
+                output.Add(MakeLineBreak());
+                break;
+            case TaskList tlb:
+                foreach (var item in tlb.Children)
+                {
+                    if (item is TaskItem ti)
+                    {
+                        var box = ti.Checked ? "â˜‘" : "â˜";
+                        output.Add(MakeRun(box + "  ", 14));
+                        foreach (var il in ti.Inline ?? EnumerateEmpty()) AppendInline(il, output);
+                    }
+                }
+                output.Add(MakeLineBreak());
+                break;
+            default:
+                output.Add(MakeRun(BlockText(block), 14));
+                output.Add(MakeLineBreak());
+                break;
+        }
+    }
+
+    private static IEnumerable<Inline> EnumerateEmpty() { yield break; }
+
+    private void AppendInline(MdInline il, IList<Inline> output)
+    {
+        switch (il)
+        {
+            case LiteralInline lit:
+                output.Add(MakeRun(lit.Content.ToString(), 14));
+                break;
+            case EmphasisInline em when em.DelimiterCount == 2:
+            {
+                var inner = new List<Inline>();
+                foreach (var c in em) AppendInline(c, inner);
+                foreach (var r in inner.OfType<Run>()) r.FontWeight = FontWeight.Bold;
+                foreach (var x in inner) output.Add(x);
+                break;
+            }
+            case EmphasisInline em:
+            {
+                var inner = new List<Inline>();
+                foreach (var c in em) AppendInline(c, inner);
+                foreach (var r in inner.OfType<Run>()) r.FontStyle = FontStyle.Italic;
+                foreach (var x in inner) output.Add(x);
+                break;
+            }
+            case CodeInline ci:
+            {
+                var r = MakeRun(ci.Content, 13);
+                r.FontFamily = new FontFamily("Cascadia Mono, Consolas, monospace");
+                r.Background = new SolidColorBrush(Color.FromRgb(40, 40, 50));
+                output.Add(r);
+                break;
+            }
+            case LinkInline li:
+            {
+                var linkText = new List<Inline>();
+                if (li.IsImage) output.Add(MakeRun("ðŸ–¼ ", 14));
+                foreach (var c in li) AppendInline(c, linkText);
+                if (!string.IsNullOrEmpty(li.Url))
+                {
+                    var url = MakeRun(li.Url, 13);
+                    url.Foreground = new SolidColorBrush(Color.FromRgb(120, 170, 255));
+                    linkText.Add(url);
+                }
+                foreach (var x in linkText) output.Add(x);
+                break;
+            }
+            case LineBreakInline:
+                output.Add(MakeLineBreak());
+                break;
+            default:
+                if (il is ContainerInline ci2)
+                    foreach (var c in ci2) AppendInline(c, output);
+                break;
+        }
+    }
+
+    private static Run MakeRun(string? text, double size)
+    {
+        var r = new Run { Text = text ?? string.Empty, FontSize = size };
+        r.Foreground = new SolidColorBrush(Color.FromRgb(220, 220, 230));
+        return r;
+    }
+
+    private static InlineUIContainer MakeLineBreak() =>
+        new(new TextBlock { Text = "\n", FontSize = 1 });
+
+    private static string BlockText(MdBlock b)
+    {
+        // Walk inlines for blocks that don't expose LeafInline directly
+        if (b is MdLeaf leaf && leaf.Inline is not null)
+        {
+            var sb = new System.Text.StringBuilder();
+            foreach (var il in leaf.Inline) sb.Append(InlineToString(il));
+            return sb.ToString();
+        }
+        return string.Empty;
+    }
+
+    private static string InlineToString(MdInline il) => il switch
+    {
+        LiteralInline l => l.Content.ToString(),
+        CodeInline c    => c.Content,
+        LineBreakInline => "\n",
+        MdContainerInline ci => Concat(ci),
+        _ => string.Empty
+    };
+
+    private static string Concat(MdContainerInline ci)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var c in ci) sb.Append(InlineToString(c));
+        return sb.ToString();
+    }
+}
+
+
+
+
+========================================
+FOLDER: Converters
+========================================
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Converters\BooleanToFontWeightConverter.cs ---
+----------------------------------------
+using System;
+using System.Globalization;
+using Avalonia.Data.Converters;
+using Avalonia.Media;
+
+namespace NoteToolAvalonia.Converters;
+
+public class BooleanToFontWeightConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is bool b && b) return FontWeight.Bold;
+        return FontWeight.Normal;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+
+
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Converters\DeadlineConverters.cs ---
+----------------------------------------
+using System;
+using System.Globalization;
+using Avalonia.Data.Converters;
+using Avalonia.Media;
+
+namespace NoteToolAvalonia.Converters;
+
+/// <summary>
+/// Returns true if a nullable DateTime has a value.
+/// Used to show/hide the deadline pill on note cards.
+/// </summary>
+public class DeadlineVisibilityConverter : IValueConverter
+{
+    public static readonly DeadlineVisibilityConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is DateTime;
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+/// <summary>
+/// Formats a nullable DateTime into a human-readable deadline string.
+/// Overdue dates are prefixed with "âš  " so they stand out at a glance.
+/// </summary>
+public class DeadlineTextConverter : IValueConverter
+{
+    public static readonly DeadlineTextConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is not DateTime d) return string.Empty;
+        var overdue = d.Date < DateTime.Today;
+        return overdue ? $"âš  {d:MMM dd}" : d.ToString("MMM dd");
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+/// <summary>
+/// Returns a background brush for the deadline pill.
+/// Red tint if overdue, subtle accent tint if upcoming.
+/// </summary>
+public class DeadlineBgConverter : IValueConverter
+{
+    public static readonly DeadlineBgConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var overdue = value is true;
+        return overdue
+            ? new SolidColorBrush(Color.Parse("#33ff4757"))   // red tint
+            : new SolidColorBrush(Color.Parse("#336a1b9a"));  // purple tint
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+/// <summary>
+/// Returns a foreground colour for deadline text.
+/// Red if overdue, accent purple if upcoming.
+/// </summary>
+public class DeadlineFgConverter : IValueConverter
+{
+    public static readonly DeadlineFgConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var overdue = value is true;
+        return overdue
+            ? new SolidColorBrush(Color.Parse("#ff4757"))
+            : new SolidColorBrush(Color.Parse("#c792ea"));
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+
+
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Converters\IntComparisonConverters.cs ---
+----------------------------------------
+using System;
+using System.Globalization;
+using Avalonia.Data.Converters;
+
+namespace NoteToolAvalonia.Converters;
+
+/// <summary>
+/// Returns true if an integer equals the ConverterParameter.
+/// Used in the note creator overlay to show/hide each step panel.
+///
+/// Example in AXAML:
+///   IsVisible="{Binding CreatorStep,
+///     Converter={x:Static converters:IntEqualsConverter.Instance},
+///     ConverterParameter=2}"
+/// </summary>
+public class IntEqualsConverter : IValueConverter
+{
+    public static readonly IntEqualsConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is int i && parameter is string s && int.TryParse(s, out var p))
+            return i == p;
+        return false;
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+/// <summary>
+/// Returns true if an integer is greater than the ConverterParameter.
+/// Used to show the "Back" button only on steps beyond the first.
+/// </summary>
+public class IntGreaterThanConverter : IValueConverter
+{
+    public static readonly IntGreaterThanConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is int i && parameter is string s && int.TryParse(s, out var p))
+            return i > p;
+        return false;
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+/// <summary>
+/// Returns true if an integer is less than the ConverterParameter.
+/// Used to show the "Next" button only on steps before the last.
+/// </summary>
+public class IntLessThanConverter : IValueConverter
+{
+    public static readonly IntLessThanConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is int i && parameter is string s && int.TryParse(s, out var p))
+            return i < p;
+        return false;
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+
+
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Converters\PriorityColorConverter.cs ---
+----------------------------------------
+using System;
+using System.Globalization;
+using Avalonia.Data.Converters;
+using Avalonia.Markup.Xaml;
+using Avalonia.Media;
+using NoteToolAvalonia.Models;
+
+namespace NoteToolAvalonia.Converters;
+
+/// <summary>
+/// Converts NotePriority enum values to color brushes for visual priority indicators.
+/// Can be used as both a converter and markup extension.
+/// </summary>
+public class PriorityColorConverter : MarkupExtension, IValueConverter
+{
+	public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+	{
+		if (value is NotePriority priority)
+		{
+			return priority switch
+			{
+				NotePriority.Critical => new SolidColorBrush(Color.Parse("#ff4757")),
+				NotePriority.High => new SolidColorBrush(Color.Parse("#ff6348")),
+				NotePriority.Medium => new SolidColorBrush(Color.Parse("#ffa502")),
+				NotePriority.Low => new SolidColorBrush(Color.Parse("#2ed573")),
+				_ => new SolidColorBrush(Color.Parse("#57606f"))
+			};
+		}
+		return new SolidColorBrush(Color.Parse("#57606f"));
+	}
+
+	public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+	{
+		throw new NotImplementedException();
+	}
+
+	public override object ProvideValue(IServiceProvider serviceProvider)
+	{
+		return this;
+	}
+}
+
+
+
+
+--- FILE: E:\GitHub\NoteyAvalonia\NoteyAvalonia\Converters\StringNotEmptyConverter.cs ---
+----------------------------------------
+using System;
+using System.Globalization;
+using Avalonia.Data.Converters;
+
+namespace NoteToolAvalonia.Converters;
+
+/// <summary>
+/// Returns true if a string is non-null and non-whitespace.
+/// Useful for showing/hiding UI elements based on whether a field has content.
+/// Drop-in reusable â€” works in any Avalonia project.
+/// </summary>
+public class StringNotEmptyConverter : IValueConverter
+{
+    /// Static instance so AXAML can reference it without a resource entry:
+    /// {x:Static converters:StringNotEmptyConverter.Instance}
+    public static readonly StringNotEmptyConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is string s && !string.IsNullOrWhiteSpace(s);
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+
+

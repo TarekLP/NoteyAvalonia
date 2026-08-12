@@ -5,32 +5,47 @@
              xmlns:controls="using:NoteToolAvalonia.Controls"
              xmlns:converters="using:NoteToolAvalonia.Converters"
              xmlns:models="using:NoteToolAvalonia.Models"
+             xmlns:mv="using:MarkView.Avalonia"
              x:Class="NoteToolAvalonia.Views.NoteEditorView"
              x:DataType="vm:NoteEditorViewModel">
 
-    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
+
+        <!-- Row 0 — Top bar -->
         <Border Grid.Row="0" Padding="10">
-            <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
                 <Button Command="{Binding GoBackCommand}" Content="Back" Classes="ghost"/>
                 <TextBox Grid.Column="1" Text="{Binding NoteTitle}" Classes="editor-title" Margin="10,0"/>
-                <ToggleButton Grid.Column="2" IsChecked="{Binding IsReferencesPanelOpen}" Content="Refs" Classes="ghost"/>
-                <Button Grid.Column="3" Command="{Binding SaveCommand}" Content="Save" Classes="accent" Margin="5,0"/>
-                <Button Grid.Column="4" Command="{Binding DeleteCommand}" Content="Delete" Classes="danger"/>
+                <ToggleButton Grid.Column="2" IsChecked="{Binding IsPinned}" Content="📌 Pin" Classes="ghost" Margin="4,0,0,0"/>
+                <CheckBox Grid.Column="3" IsChecked="{Binding IsCompleted}" Content="Done" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                <ToggleButton Grid.Column="4" IsChecked="{Binding IsReferencesPanelOpen}" Content="Refs" Classes="ghost" Margin="6,0,0,0"/>
+                <ToggleButton Grid.Column="5" IsChecked="{Binding IsPreviewVisible}" Content="Preview" Classes="ghost" Margin="5,0,0,0"/>
+                <Button Grid.Column="6" Command="{Binding ExportCommand}" Content="Export HTML" Classes="ghost" Margin="6,0,0,0"/>
+                <Button Grid.Column="7" Command="{Binding SaveCommand}" Content="Save" Classes="accent" Margin="5,0,0,0"/>
+                <Button Grid.Column="8" Command="{Binding DeleteCommand}" Content="Delete" Classes="danger" Margin="5,0,0,0"/>
             </Grid>
         </Border>
 
+        <!-- Row 1 — Metadata -->
         <Border Grid.Row="1" Padding="10,0,10,10">
             <StackPanel Orientation="Horizontal" Spacing="12">
-                <TextBox Text="{Binding Category}" Watermark="Category..." Width="150"/>
-                <TextBox Text="{Binding TagsDisplay}" Watermark="Tags (comma separated)..." Width="250"/>
+                <TextBox Text="{Binding Category}" PlaceholderText="Category..." Width="150"/>
+                <TextBox Text="{Binding TagsDisplay}" PlaceholderText="Tags (comma separated)..." Width="250"/>
+                <ComboBox ItemsSource="{Binding PriorityLevels}"
+                          SelectedItem="{Binding SelectedPriority, Mode=TwoWay}"
+                          Width="110"/>
                 <CheckBox IsChecked="{Binding HasDeadline}" Content="Deadline"/>
                 <DatePicker SelectedDate="{Binding Deadline}" IsEnabled="{Binding HasDeadline}"/>
             </StackPanel>
         </Border>
 
+        <!-- Row 2 — Formatting toolbar -->
         <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
             <Border Padding="12,8">
                 <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Command="{Binding UndoCommand}" Content="↶" Width="32" ToolTip.Tip="Undo (Ctrl+Z)"/>
+                    <Button Command="{Binding RedoCommand}" Content="↷" Width="32" ToolTip.Tip="Redo (Ctrl+Y)"/>
+                    <Separator Width="1" Margin="5,0"/>
                     <Button x:Name="BoldButton" Content="B" FontWeight="Bold" Width="32"/>
                     <Button x:Name="ItalicButton" Content="I" FontStyle="Italic" Width="32"/>
                     <Button x:Name="StrikeButton" Content="S" Width="32"/>
@@ -46,20 +61,46 @@
                     <Separator Width="1" Margin="5,0"/>
                     <Button x:Name="TableButton" Content="Table" Width="60"/>
                     <Button x:Name="HrButton" Content="---" Width="55"/>
+                    <Separator Width="1" Margin="5,0"/>
+                    <ToggleButton IsChecked="{Binding ShowFindReplace}" Content="Find" Classes="ghost" Width="60" ToolTip.Tip="Find &amp; Replace"/>
+                    <ToggleButton IsChecked="{Binding ShowLineNumbers}" Content="Ln" Classes="ghost" Width="44" ToolTip.Tip="Toggle line numbers"/>
+                    <ToggleButton IsChecked="{Binding WordWrapEnabled}" Content="Wrap" Classes="ghost" Width="48" ToolTip.Tip="Toggle word wrap"/>
                 </StackPanel>
             </Border>
         </ScrollViewer>
 
-        <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto">
-            <Border Grid.Column="0" Width="55" Background="{StaticResource Brush.Surface}">
-                <TextBlock Name="LineNumbersPanel" Text="{Binding LineNumbersText}" TextAlignment="Right" Padding="0,10,10,0" Foreground="{StaticResource Brush.Text.Muted}"/>
-            </Border>
+        <!-- Row 3 — Find & replace panel -->
+        <Border Grid.Row="3" Padding="10,0,10,8" IsVisible="{Binding ShowFindReplace}">
+            <Grid ColumnDefinitions="*,*,Auto,Auto,Auto">
+                <TextBox Grid.Column="0" Text="{Binding FindText, Mode=TwoWay}" PlaceholderText="Find..."/>
+                <TextBox Grid.Column="1" Text="{Binding ReplaceText, Mode=TwoWay}" PlaceholderText="Replace with..." Margin="6,0,0,0"/>
+                <TextBlock Grid.Column="2" Text="{Binding FindMatchCount, StringFormat='{}{0} matches'}"
+                           VerticalAlignment="Center" Margin="10,0" Foreground="{StaticResource Brush.TextSecondary}"/>
+                <Button Grid.Column="3" Command="{Binding ReplaceAllCommand}" Content="Replace All" Classes="accent" Margin="6,0,0,0"/>
+                <Button Grid.Column="4" Command="{Binding ShowFindReplacePanelCommand}" Content="✕" Classes="ghost" Margin="6,0,0,0" ToolTip.Tip="Close"/>
+            </Grid>
+        </Border>
 
-            <controls:MarkdownEditor Grid.Column="1" 
-                                    Name="MarkdownEditorHost"
-                                    Markdown="{Binding NoteContent, Mode=TwoWay}"/>
+        <!-- Row 4 — Editor area -->
+        <Grid Grid.Row="4" ColumnDefinitions="*,8,*,Auto">
+            <controls:MarkdownEditor Grid.Column="0"
+                                     Name="MarkdownEditorHost"
+                                     Margin="0,8,0,0"
+                                     ShowLineNumbers="{Binding ShowLineNumbers}"
+                                     WordWrapEnabled="{Binding WordWrapEnabled}"
+                                     Markdown="{Binding NoteContent, Mode=TwoWay}"/>
 
-            <Border Grid.Column="2" Width="300" IsVisible="{Binding IsReferencesPanelOpen}" Background="{StaticResource Brush.Surface}" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1,0,0,0">
+            <GridSplitter Grid.Column="1" Width="8" ResizeDirection="Columns"
+                          Background="{StaticResource Brush.Border}" ShowsPreview="False"
+                          Cursor="SizeWestEast"/>
+
+            <ScrollViewer Grid.Column="2" IsVisible="{Binding IsPreviewVisible}"
+                          HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
+                          Background="{StaticResource Brush.Background}">
+                <mv:MarkdownViewer Markdown="{Binding NoteContent}" MinWidth="200" Margin="4,8,4,0"/>
+            </ScrollViewer>
+
+            <Border Grid.Column="3" Width="300" IsVisible="{Binding IsReferencesPanelOpen}" Background="{StaticResource Brush.Surface}" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1,0,0,0">
                 <Grid RowDefinitions="Auto,*,Auto">
                     <TextBlock Grid.Row="0" Text="References" Classes="section-title" Margin="16"/>
                     <ScrollViewer Grid.Row="1">
@@ -80,7 +121,8 @@
             </Border>
         </Grid>
 
-        <Border Grid.Row="4" Padding="12,8" Background="{StaticResource Brush.Surface}">
+        <!-- Row 5 — Status bar -->
+        <Border Grid.Row="5" Padding="12,8" Background="{StaticResource Brush.Surface}">
             <Grid ColumnDefinitions="*,Auto,Auto,Auto">
                 <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center"/>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="15" Margin="10,0">

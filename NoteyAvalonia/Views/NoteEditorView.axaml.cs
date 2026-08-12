@@ -1,4 +1,5 @@
 using System;
+using Avalonia.Interactivity;
 using Avalonia.Controls;
 using Avalonia.Input;
 using NoteToolAvalonia.Controls;
@@ -16,6 +17,20 @@ public partial class NoteEditorView : UserControl
 		InitializeComponent();
 		_mdEditor = this.FindControl<MarkdownEditor>("MarkdownEditorHost");
 		WireToolbarButtons();
+		AddHandler(InputElement.KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
+	}
+
+	private void OnPreviewKeyDown(object? sender, KeyEventArgs e)
+	{
+		if (!e.KeyModifiers.HasFlag(KeyModifiers.Control)) return;
+		if (e.Key == Key.Z || e.Key == Key.Y)
+		{
+			var vm = DataContext as NoteEditorViewModel;
+			if (vm == null) return;
+			if (e.Key == Key.Z) vm.UndoCommand.Execute(null);
+			else                vm.RedoCommand.Execute(null);
+			e.Handled = true;
+		}
 	}
 
 	private void WireToolbarButtons()

@@ -45,12 +45,38 @@
                   BorderBrush="{StaticResource Brush.Border}"
                   BorderThickness="1">
             <StackPanel Spacing="12">
-              <TextBlock Text="Theme"
-                         FontSize="13" FontWeight="SemiBold"
-                         Foreground="{StaticResource Brush.TextPrimary}"/>
-              <ComboBox ItemsSource="{Binding Themes}"
-                        SelectedItem="{Binding SelectedTheme, Mode=TwoWay}"
-                        Width="200"/>
+              <DockPanel>
+                <TextBlock DockPanel.Dock="Left"
+                           Text="Theme"
+                           FontSize="13" FontWeight="SemiBold"
+                           Foreground="{StaticResource Brush.TextPrimary}"
+                           VerticalAlignment="Center"/>
+                <ComboBox ItemsSource="{Binding Themes}"
+                          SelectedItem="{Binding SelectedTheme, Mode=TwoWay}"
+                          Width="200" HorizontalAlignment="Right"/>
+              </DockPanel>
+
+              <DockPanel>
+                <TextBlock DockPanel.Dock="Left"
+                           Text="Font Family"
+                           FontSize="13" FontWeight="SemiBold"
+                           Foreground="{StaticResource Brush.TextPrimary}"
+                           VerticalAlignment="Center"/>
+                <TextBox Text="{Binding FontFamily, Mode=TwoWay}"
+                         PlaceholderText="e.g. Inter, Segoe UI"
+                         Width="200" HorizontalAlignment="Right"/>
+              </DockPanel>
+
+              <DockPanel>
+                <TextBlock DockPanel.Dock="Left"
+                           Text="Font Size"
+                           FontSize="13" FontWeight="SemiBold"
+                           Foreground="{StaticResource Brush.TextPrimary}"
+                           VerticalAlignment="Center"/>
+                <NumericUpDown Minimum="8" Maximum="48"
+                               Value="{Binding FontSize, Mode=TwoWay}"
+                               Width="200" HorizontalAlignment="Right"/>
+              </DockPanel>
             </StackPanel>
           </Border>
         </StackPanel>

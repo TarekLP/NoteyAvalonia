@@ -4,10 +4,15 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NoteToolAvalonia.Models;
 using NoteToolAvalonia.Services;
+using NoteToolAvalonia.Views;
 
 namespace NoteToolAvalonia.ViewModels;
 
@@ -36,7 +41,14 @@ public partial class NoteEditorViewModel : ViewModelBase
     [ObservableProperty] private ObservableCollection<NoteCard> _allOtherNotes   = new();
     [ObservableProperty] private string _referenceSearch = string.Empty;
 
-    // ── Editor state ───────────────────────────────────────
+    // ── Markdown preview pane ──────────────────────────────
+    [ObservableProperty] private bool _isPreviewVisible;
+
+    // ── Completion / pinning ───────────────────────────────
+    [ObservableProperty] private bool _isCompleted;
+    [ObservableProperty] private bool _isPinned;
+
+    // ── Editor state ──────────────────────────────────────────
     [ObservableProperty] private bool   _hasUnsavedChanges;
     [ObservableProperty] private bool   _showLineNumbers  = false;
     [ObservableProperty] private bool   _wordWrapEnabled  = true;
@@ -71,6 +83,8 @@ public partial class NoteEditorViewModel : ViewModelBase
         _category    = card.Category;
         _tagsDisplay = string.Join(", ", card.Tags);
         _selectedPriority = card.Priority;
+        _isCompleted = card.IsCompleted;
+        _isPinned    = card.IsPinned;
         _deadlineText = string.Empty;
 
         if (card.Deadline.HasValue)
@@ -86,6 +100,7 @@ public partial class NoteEditorViewModel : ViewModelBase
         LoadAutoSaveSettings();
         UpdateStatistics();
         LoadReferencedNotes();
+        IsPreviewVisible = _service.LoadSettings().ShowPreview;
     }
 
     private void LoadAutoSaveSettings()
@@ -130,6 +145,18 @@ public partial class NoteEditorViewModel : ViewModelBase
         ScheduleAutoSave();
     }
 
+    partial void OnIsCompletedChanged(bool value)
+    {
+        HasUnsavedChanges = true;
+        ScheduleAutoSave();
+    }
+
+    partial void OnIsPinnedChanged(bool value)
+    {
+        HasUnsavedChanges = true;
+        ScheduleAutoSave();
+    }
+
     partial void OnFindTextChanged(string value) => UpdateFindMatches();
 
     partial void OnReferenceSearchChanged(string value) => FilterReferenceSearch(value);
@@ -146,6 +173,8 @@ public partial class NoteEditorViewModel : ViewModelBase
         _card.Tags     = TagsDisplay
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToList();
+        _card.IsCompleted = IsCompleted;
+        _card.IsPinned    = IsPinned;
     }
 
     [RelayCommand]
@@ -194,10 +223,43 @@ public partial class NoteEditorViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void Delete()
+    private async Task Delete()
     {
+        if (_service.LoadSettings().ConfirmBeforeDelete &&
+            !await Dialogs.ConfirmAsync("Delete note",
+                $"Delete \"{_card.Title}\" permanently? This cannot be undone."))
+            return;
+
         _service.DeleteNote(_card.Id);
         _service.NavigateToWelcome();
+    }
+
+    [RelayCommand]
+    private async Task Export()
+    {
+        if (Application.Current?.ApplicationLifetime
+            is not IClassicDesktopStyleApplicationLifetime { MainWindow: { } window }) return;
+
+        var topLevel = TopLevel.GetTopLevel(window);
+        if (topLevel == null) return;
+
+        var file = await topLevel.StorageProvider.SaveFilePickerAsync(
+            new FilePickerSaveOptions
+            {
+                Title = "Export note as HTML",
+                SuggestedFileName = $"{_card.Title}.html",
+                DefaultExtension = "html",
+                FileTypeChoices = new[]
+                {
+                    new FilePickerFileType("HTML document") { Patterns = new[] { "*.html" } }
+                }
+            });
+
+        if (file == null) return;
+
+        if (HasUnsavedChanges) Save();
+        _service.ExportNote(_card.Id, file.Path.LocalPath);
+        ShowStatus("Exported as HTML");
     }
 
     // ══════════════════════════════════════════════════════
@@ -256,6 +318,20 @@ public partial class NoteEditorViewModel : ViewModelBase
     // ══════════════════════════════════════════════════════
     //  REFERENCES PANEL
     // ══════════════════════════════════════════════════════
+
+    partial void OnIsPreviewVisibleChanged(bool value)
+    {
+        try
+        {
+            var s = _service.LoadSettings();
+            s.ShowPreview = value;
+            _service.SaveSettings(s);
+        }
+        catch { /* ponytail: settings persistence is best-effort */ }
+    }
+
+    [RelayCommand]
+    private void TogglePreview() => IsPreviewVisible = !IsPreviewVisible;
 
     [RelayCommand]
     private void ToggleReferencesPanel()

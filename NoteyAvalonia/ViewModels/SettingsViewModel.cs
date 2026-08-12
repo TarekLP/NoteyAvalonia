@@ -22,6 +22,8 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty] private int    _autoSaveInterval    = 2;
     [ObservableProperty] private bool   _confirmBeforeDelete = true;
     [ObservableProperty] private bool   _showCompletedNotes  = true;
+    [ObservableProperty] private string _fontFamily          = "Inter";
+    [ObservableProperty] private int    _fontSize            = 15;
 
     // Storage location — shown read-only unless user browses to override
     [ObservableProperty] private string _dataFolderPath      = "";
@@ -31,7 +33,7 @@ public partial class SettingsViewModel : ViewModelBase
     public SettingsViewModel(NoteyService service)
     {
         _service        = service;
-        _dataFolderPath = _service.DataFolder;   // populate from service on init
+        _dataFolderPath = _service.NotesFolder;   // populate from service on init
 
         var settings = _service.LoadSettings();
         LoadFromModel(settings);
@@ -47,6 +49,8 @@ public partial class SettingsViewModel : ViewModelBase
         AutoSaveInterval    = s.AutoSaveInterval;
         ConfirmBeforeDelete = s.ConfirmBeforeDelete;
         ShowCompletedNotes  = s.ShowCompletedNotes;
+        FontFamily          = string.IsNullOrWhiteSpace(s.FontFamily) ? "Inter" : s.FontFamily;
+        FontSize            = s.FontSize > 0 ? s.FontSize : 15;
     }
 
     [RelayCommand]
@@ -55,12 +59,13 @@ public partial class SettingsViewModel : ViewModelBase
         _service.SaveSettings(new AppSettings
         {
             Theme               = SelectedTheme,
-            FontFamily          = "Inter",
-            FontSize            = 15,
+            FontFamily          = string.IsNullOrWhiteSpace(FontFamily) ? "Inter" : FontFamily.Trim(),
+            FontSize            = FontSize > 0 ? FontSize : 15,
             AutoSave            = AutoSave,
             AutoSaveInterval    = AutoSaveInterval,
             ConfirmBeforeDelete = ConfirmBeforeDelete,
-            ShowCompletedNotes  = ShowCompletedNotes
+            ShowCompletedNotes  = ShowCompletedNotes,
+            ShowPreview         = _service.LoadSettings().ShowPreview
         });
 
         // Re-apply theme / font immediately without restart
@@ -70,6 +75,7 @@ public partial class SettingsViewModel : ViewModelBase
         {
             mainVm.ApplyAppSettings();
         }
+        ApplyFontSettings();
 
         StatusMessage = "Settings saved!";
     }
@@ -117,17 +123,20 @@ public partial class SettingsViewModel : ViewModelBase
                 AllowMultiple = false
             });
 
-        if (folders.Count > 0)
-            DataFolderPath = folders[0].Path.LocalPath;
+        if (folders.Count == 0) return;
+
+        var path = folders[0].Path.LocalPath;
+        _service.MoveNotesFolder(path);
+        DataFolderPath = _service.NotesFolder;
     }
 
     // ── Font / theme side-effects ──────────────────────────
 
-    private static void ApplyFontSettings()
+    private void ApplyFontSettings()
     {
         if (Application.Current == null) return;
         Application.Current.Resources["AppFontFamily"] =
-            new Avalonia.Media.FontFamily("Inter");
-        Application.Current.Resources["AppFontSize"] = 15.0;
+            new Avalonia.Media.FontFamily(string.IsNullOrWhiteSpace(FontFamily) ? "Inter" : FontFamily);
+        Application.Current.Resources["AppFontSize"] = FontSize > 0 ? FontSize : 15;
     }
 }

@@ -1,6 +1,7 @@
 ﻿<Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:controls="using:NoteToolAvalonia.Controls">
+        xmlns:controls="using:NoteToolAvalonia.Controls"
+        xmlns:converters="using:NoteToolAvalonia.Converters">
 
   <Styles.Resources>
 
@@ -209,17 +210,55 @@
   <Style Selector="controls|MarkdownEditor">
     <Setter Property="Template">
       <ControlTemplate>
-        <TextBox Name="PART_EditorInput"
-                 Text="{Binding $parent[controls:MarkdownEditor].Markdown, Mode=TwoWay}"
-                 AcceptsReturn="True"
-                 AcceptsTab="True"
-                 TextWrapping="Wrap"
-                 Background="Transparent"
-                 Foreground="{StaticResource Brush.TextPrimary}"
-                 BorderThickness="0"
-                 Padding="12"/>
+        <Grid ColumnDefinitions="Auto,*">
+          <TextBlock Name="PART_LineNumbers"
+                     Grid.Column="0"
+                     IsVisible="{Binding $parent[controls:MarkdownEditor].ShowLineNumbers}"
+                     Text="1"
+                     TextAlignment="Right"
+                     FontFamily="Cascadia Code, Consolas, monospace"
+                     Foreground="{StaticResource Brush.TextSecondary}"
+                     Padding="0,12,8,0"/>
+          <TextBox Name="PART_EditorInput"
+                   Grid.Column="1"
+                   Text="{Binding $parent[controls:MarkdownEditor].Markdown, Mode=TwoWay}"
+                   AcceptsReturn="True"
+                   AcceptsTab="True"
+                   TextWrapping="{Binding $parent[controls:MarkdownEditor].WordWrapEnabled, Converter={x:Static converters:BooleanToTextWrappingConverter.Instance}}"
+                   Background="Transparent"
+                   Foreground="{StaticResource Brush.TextPrimary}"
+                   BorderThickness="0"
+                   Padding="12"/>
+        </Grid>
       </ControlTemplate>
     </Setter>
+  </Style>
+
+  <!-- =========================
+       SPLITTER
+       ========================= -->
+  <Style Selector="GridSplitter">
+    <Setter Property="Background" Value="{StaticResource Brush.Border}"/>
+  </Style>
+  <Style Selector="GridSplitter:pointerover">
+    <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
+  </Style>
+
+  <!-- =========================
+       MARKDOWN PREVIEW
+       Match editor text padding (12px) and let paragraphs breathe.
+       ========================= -->
+  <Style Selector="TextBlock.markdown-paragraph">
+    <Setter Property="Margin" Value="0,0,0,8"/>
+  </Style>
+  <Style Selector="TextBlock.markdown-h1">
+    <Setter Property="Margin" Value="0,8,0,12"/>
+  </Style>
+  <Style Selector="TextBlock.markdown-h2">
+    <Setter Property="Margin" Value="12,8,0,8"/>
+  </Style>
+  <Style Selector="TextBlock.markdown-h3">
+    <Setter Property="Margin" Value="8,4,0,4"/>
   </Style>
 
 </Styles>

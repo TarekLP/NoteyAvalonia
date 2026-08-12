@@ -18,6 +18,8 @@
 
 ## 🚀 Future Roadmap
 
-* **More to come!** Stay tuned for additional features and enhancements. You'll always find updates on my [Website](https://greedman.vercel.app)!
+* **More projects to come!** Stay tuned for additional projects. You'll always find updates on my [Website](https://greedman.vercel.app)!
+
+#### Sorry for the small readme this time.
 
 ---

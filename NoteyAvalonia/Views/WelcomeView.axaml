@@ -70,7 +70,7 @@
             <TextBlock Text="SEARCH" FontSize="10" LetterSpacing="1"
                        Foreground="{StaticResource Brush.TextSecondary}"/>
             <TextBox Text="{Binding SearchText, Mode=TwoWay}"
-                     Watermark="Search notes..."
+                     PlaceholderText="Search notes..."
                      CornerRadius="6" Padding="10,8"/>
           </StackPanel>
 
@@ -141,7 +141,7 @@
         </Border>
 
         <!-- Cards -->
-        <ItemsControl ItemsSource="{Binding FilteredNotes}">
+        <ItemsControl x:Name="NotesList" ItemsSource="{Binding FilteredNotes}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
               <WrapPanel/>
@@ -167,6 +167,12 @@
                       <Transitions>
                         <BrushTransition Property="BorderBrush" Duration="0:0:0.15"/>
                         <BrushTransition Property="Background"  Duration="0:0:0.15"/>
+                        <DoubleTransition Property="Opacity"
+                                         Duration="0:0:0.5"
+                                         Easing="CubicEaseOut"/>
+                        <TransformOperationsTransition Property="RenderTransform"
+                                                      Duration="0:0:0.5"
+                                                      Easing="CubicEaseOut"/>
                       </Transitions>
                     </Setter>
                   </Style>
@@ -280,7 +286,7 @@
                        Foreground="{StaticResource Brush.TextPrimary}"/>
             <TextBox Name="WizardStep1Box"
                      Text="{Binding NewNoteTitle, Mode=TwoWay}"
-                     Watermark="Note title..." FontSize="15"
+                     PlaceholderText="Note title..." FontSize="15"
                      Padding="14,12" CornerRadius="8"/>
           </StackPanel>
 
@@ -296,7 +302,7 @@
                        Foreground="{StaticResource Brush.TextSecondary}"/>
             <TextBox Name="WizardStep2Box"
                      Text="{Binding NewNoteCategory, Mode=TwoWay}"
-                     Watermark="Category (optional)..."
+                     PlaceholderText="Category (optional)..."
                      Padding="14,12" CornerRadius="8"/>
           </StackPanel>
 
@@ -312,7 +318,7 @@
                        Foreground="{StaticResource Brush.TextSecondary}"/>
             <TextBox Name="WizardStep3Box"
                      Text="{Binding NewNoteTags, Mode=TwoWay}"
-                     Watermark="Tags (optional)..."
+                     PlaceholderText="Tags (optional)..."
                      Padding="14,12" CornerRadius="8"/>
           </StackPanel>
 
@@ -328,7 +334,7 @@
                        Foreground="{StaticResource Brush.TextSecondary}"/>
             <TextBox Name="WizardStep4Box"
                      Text="{Binding NewNoteDeadline, Mode=TwoWay}"
-                     Watermark="YYYY-MM-DD (optional)..."
+                     PlaceholderText="YYYY-MM-DD (optional)..."
                      Padding="14,12" CornerRadius="8"/>
           </StackPanel>
 

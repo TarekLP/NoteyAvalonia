@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NoteToolAvalonia.Models;
 using NoteToolAvalonia.Services;
+using NoteToolAvalonia.Views;
 
 namespace NoteToolAvalonia.ViewModels;
 
@@ -132,8 +134,13 @@ public partial class WelcomeViewModel : ViewModelBase
         _service.NavigateToNoteEditor(card);   // via NoteyService, never via ApplicationLifetime
 
     [RelayCommand]
-    private void DeleteNote(NoteCard card)
+    private async Task DeleteNote(NoteCard card)
     {
+        if (_service.LoadSettings().ConfirmBeforeDelete &&
+            !await Dialogs.ConfirmAsync("Delete note",
+                $"Delete \"{card.Title}\" permanently? This cannot be undone."))
+            return;
+
         _service.DeleteNote(card.Id);
         LoadNotes();
     }

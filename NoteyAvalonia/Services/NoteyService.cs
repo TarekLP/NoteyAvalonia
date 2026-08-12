@@ -38,7 +38,7 @@ public class NoteyService : INoteyNavigator
     // ── Paths ──────────────────────────────────────────────
 
     private readonly string _dataFolder;
-    private readonly string _notesFolder;
+    private string _notesFolder;
     private readonly string _notesIndexFile;
     private readonly string _settingsFile;
 
@@ -61,9 +61,9 @@ public class NoteyService : INoteyNavigator
     //  CONSTRUCTOR
     // ══════════════════════════════════════════════════════
 
-    public NoteyService()
+    public NoteyService(string? dataFolder = null)
     {
-        _dataFolder = Path.Combine(
+        _dataFolder = dataFolder ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "NoteToolAvalonia");
 
@@ -172,17 +172,64 @@ public class NoteyService : INoteyNavigator
     }
 
     /// <summary>
-    /// Exports a note's full content (frontmatter + body) to an
-    /// arbitrary file path chosen by the user.
+    /// Exports a note as a standalone HTML file: the markdown body is
+    /// converted to HTML (via Markdig) and wrapped in a self-contained
+    /// document with inline styles, so it can be opened in any browser.
     /// </summary>
     public void ExportNote(string noteId, string targetPath)
     {
         var path = GetNotePath(noteId);
+        string raw;
         lock (_fileLock)
         {
             if (!File.Exists(path)) return;
-            var content = File.ReadAllText(path);
-            WriteWithRetry(targetPath, content);
+            raw = File.ReadAllText(path);
+        }
+
+        var title = System.Net.WebUtility.HtmlEncode(Path.GetFileNameWithoutExtension(targetPath));
+        var bodyHtml = Markdig.Markdown.ToHtml(StripFrontmatter(raw));
+        var html = $$"""
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>{{title}}</title>
+            <style>
+            body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; max-width: 820px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #1e1e1e; }
+            h1,h2,h3 { line-height: 1.25; }
+            code { background: #f0f0f0; padding: 2px 5px; border-radius: 4px; font-size: 0.9em; }
+            pre { background: #f6f8fa; padding: 14px; border-radius: 8px; overflow-x: auto; }
+            pre code { background: none; padding: 0; }
+            blockquote { border-left: 4px solid #6a1b9a; margin: 0; padding-left: 16px; color: #555; }
+            table { border-collapse: collapse; }
+            th, td { border: 1px solid #ccc; padding: 6px 10px; }
+            img { max-width: 100%; }
+            </style>
+            </head>
+            <body>
+            {{bodyHtml}}
+            </body>
+            </html>
+            """;
+
+        lock (_fileLock)
+        {
+            WriteWithRetry(targetPath, html);
+        }
+    }
+
+    /// <summary>
+    /// Re-points the notes folder to a new location chosen by the user.
+    /// Existing notes stay where they are; new notes are written here.
+    /// </summary>
+    public void MoveNotesFolder(string newPath)
+    {
+        if (string.IsNullOrWhiteSpace(newPath)) return;
+        lock (_fileLock)
+        {
+            Directory.CreateDirectory(newPath);
+            _notesFolder = newPath;
         }
     }
 
@@ -232,6 +279,7 @@ public class NoteyService : INoteyNavigator
             created: {card.CreatedAt:O}
             modified: {card.LastModified:O}
             completed: {card.IsCompleted.ToString().ToLower()}
+            pinned: {card.IsPinned.ToString().ToLower()}
             ---
 
             """;
@@ -267,6 +315,7 @@ public class NoteyService : INoteyNavigator
                 case "title":      card.Title    = value; break;
                 case "category":   card.Category = value; break;
                 case "completed":  card.IsCompleted = value == "true"; break;
+                case "pinned":     card.IsPinned    = value == "true"; break;
                 case "priority":
                     if (Enum.TryParse<NotePriority>(value, out var p))
                         card.Priority = p;

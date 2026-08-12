@@ -9,4 +9,5 @@ public class AppSettings
 	public int AutoSaveInterval { get; set; } = 2;
 	public bool ConfirmBeforeDelete { get; set; } = true;
 	public bool ShowCompletedNotes { get; set; } = true;
+	public bool ShowPreview { get; set; } = true;
 }
